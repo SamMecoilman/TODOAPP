@@ -894,12 +894,7 @@ function openTagEditor(e, id) {
 
   const editor = document.createElement('div');
   editor.className = 'tag-editor';
-
-  // 位置を計算（クリック地点の近く）
-  const x = Math.min(e.clientX, window.innerWidth - 200);
-  const y = e.clientY + 8;
-  editor.style.left = x + 'px';
-  editor.style.top  = y + 'px';
+  editor.style.visibility = 'hidden'; // 測定中は非表示
 
   editor.innerHTML = `
     <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;">タグを選択</div>
@@ -915,6 +910,17 @@ function openTagEditor(e, id) {
     </div>`;
 
   document.body.appendChild(editor);
+
+  // DOMに追加後に実サイズを測って位置を確定
+  const eh = editor.offsetHeight;
+  const ew = editor.offsetWidth;
+  let x = Math.min(e.clientX, window.innerWidth - ew - 8);
+  let y = e.clientY + 8;
+  // 下にはみ出る場合は上に反転
+  if(y + eh > window.innerHeight - 8) y = e.clientY - eh - 8;
+  editor.style.left = x + 'px';
+  editor.style.top  = Math.max(8, y) + 'px';
+  editor.style.visibility = '';
 
   setTimeout(() => {
     document.addEventListener('click', function close(ev) {
