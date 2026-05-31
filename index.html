@@ -644,6 +644,8 @@ function resetFilters() {
 }
 
 function applyPreset(btn) {
+  // 同じボタンを再クリックしたら解除
+  if(btn.classList.contains('active')) { resetFilters(); return; }
   resetFilters();
   const p = btn.dataset.preset;
   filters.preset = p;
