@@ -34,7 +34,9 @@
 body { font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
 
 /* ── HEADER ── */
-.app-header { background: linear-gradient(135deg, #4A90D9, #357ABD); color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.2); position: sticky; top: 0; z-index: 200; }
+.sticky-top { position: sticky; top: 0; z-index: 200; background: var(--bg); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.app-header { background: linear-gradient(135deg, #4A90D9, #357ABD); color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+.add-bar-wrap { padding: 10px 18px 10px; background: var(--bg); }
 .app-title { font-size: 18px; font-weight: 800; letter-spacing: .5px; flex: 1; }
 .view-toggle { display: flex; gap: 3px; background: rgba(255,255,255,.15); padding: 3px; border-radius: 6px; }
 .view-btn { padding: 5px 14px; border: none; background: transparent; color: rgba(255,255,255,.85); border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s; }
@@ -278,7 +280,7 @@ tr.grp-row-hidden { display: none; }
 
   /* Main */
   .main { padding:10px 12px 80px; }
-  .add-bar { display:none; }  /* FABで代替 */
+  .add-bar-wrap { display:none; }  /* FABで代替 */
 
   /* Table → Cards */
   .tbl-wrap  { display:none; }
@@ -302,6 +304,7 @@ tr.grp-row-hidden { display: none; }
 </head>
 <body>
 
+<div class="sticky-top">
 <!-- HEADER -->
 <header class="app-header">
   <span class="app-title">📋 TODO Manager</span>
@@ -364,15 +367,19 @@ tr.grp-row-hidden { display: none; }
 <!-- STATS -->
 <div class="stats-bar" id="stats-bar"></div>
 
+  <!-- Quick add (sticky-top内) -->
+  <div class="add-bar-wrap">
+    <div class="add-bar">
+      <input type="text" class="add-input" id="quick-input"
+        placeholder="タスク名を入力して Enter でクイック追加…"
+        onkeydown="if(event.key==='Enter')quickAdd()">
+      <button class="add-btn" onclick="openModal(null)">＋ 詳細追加</button>
+    </div>
+  </div>
+</div><!-- /sticky-top -->
+
 <!-- MAIN -->
 <div class="main">
-  <!-- Quick add -->
-  <div class="add-bar">
-    <input type="text" class="add-input" id="quick-input"
-      placeholder="タスク名を入力して Enter でクイック追加…"
-      onkeydown="if(event.key==='Enter')quickAdd()">
-    <button class="add-btn" onclick="openModal(null)">＋ 詳細追加</button>
-  </div>
 
   <!-- Table view -->
   <div id="view-table">
