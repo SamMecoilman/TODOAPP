@@ -79,15 +79,37 @@ thead th.sort:hover { color: var(--primary); }
 tbody td { padding: 7px 10px; border-bottom: 1px solid #F0F4F8; vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 
-/* row status colors */
-tr.row-未着手 { background: var(--row-pending); }
-tr.row-保留 { background: var(--row-hold); }
-tr.row-保留 td:first-child { border-left: 3px solid var(--row-hold-accent); }
-tr.row-進行中 { background: var(--row-wip); }
-tr.row-進行中 td:first-child { border-left: 3px solid var(--row-wip-accent); }
-tr.row-完了 { background: var(--row-done); }
-tr.row-完了 td { color: var(--row-done-text) !important; }
-tr.row-完了 .tname { text-decoration: line-through; }
+/* ── ROW COLORS（優先順: 完了 > 期日urgency > ステータス）──
+   完了       → グレー
+   期日超過   → 赤
+   今日期日   → 濃い赤オレンジ
+   3日以内    → 黄色
+   保留       → 薄い黄色（警戒）
+   進行中     → 薄い青
+   未着手     → 白
+*/
+tr.row-done    { background: var(--row-done); }
+tr.row-done td { color: var(--row-done-text) !important; }
+tr.row-overdue { background: #FEE2E2; }
+tr.row-today   { background: #FECACA; }
+tr.row-soon    { background: #FEFCE8; }
+tr.row-hold    { background: var(--row-hold); }
+tr.row-wip     { background: var(--row-wip); }
+tr.row-normal  { background: #FFFFFF; }
+/* 左端アクセントライン */
+tr.row-overdue td:first-child { border-left: 3px solid #EF4444; }
+tr.row-today   td:first-child { border-left: 3px solid #DC2626; }
+tr.row-soon    td:first-child { border-left: 3px solid #F59E0B; }
+tr.row-hold    td:first-child { border-left: 3px solid var(--row-hold-accent); }
+tr.row-wip     td:first-child { border-left: 3px solid var(--row-wip-accent); }
+
+/* ── DATE GROUP HEADERS ── */
+tr.grp-hdr td { padding: 9px 14px 7px; font-size: 12px; font-weight: 800; letter-spacing: .3px; background: #F1F5F9; border-top: 2px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+tr.grp-hdr:first-child td { border-top: none; }
+tr.grp-hdr.grp-overdue td { background: #FEE2E2; color: #DC2626; }
+tr.grp-hdr.grp-today   td { background: #FECACA; color: #991B1B; }
+tr.grp-hdr.grp-soon    td { background: #FEFCE8; color: #78350F; }
+.grp-count { font-size: 11px; font-weight: 600; background: rgba(0,0,0,.07); padding: 1px 8px; border-radius: 8px; color: inherit; opacity:.8; margin-left: 8px; }
 
 /* ── INLINE EDIT ── */
 .ec { cursor: pointer; border-radius: 3px; }
@@ -203,6 +225,8 @@ tr.row-完了 .tname { text-decoration: line-through; }
   <button class="qf-btn" data-preset="main"    onclick="applyPreset(this)">📺 メインCH</button>
   <button class="qf-btn" data-preset="spinoff" onclick="applyPreset(this)">🎬 スピンオフ</button>
   <button class="qf-btn" data-preset="biz"     onclick="applyPreset(this)">📁 採用・事務</button>
+  <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></span>
+  <button class="qf-btn" id="toggle-done" onclick="toggleHideDone()">👁 完了を非表示</button>
 </div>
 
 <!-- FILTER BAR -->
@@ -335,6 +359,7 @@ tr.row-完了 .tname { text-decoration: line-through; }
 
 <script>
 // ── CONSTANTS ──
+let hideDone = false;
 const DEFAULT_TAGS = ['メインチャンネル', 'スピンオフ', '採用・事務'];
 const STATUS_LIST  = ['未着手', '進行中', '保留', '完了'];
 const PRI_ORDER    = { 高: 0, 中: 1, 低: 2 };
@@ -438,6 +463,9 @@ function filtered() {
     return av<bv ? sortDir : av>bv ? -sortDir : 0;
   });
 
+  // 完了非表示
+  if(hideDone) r = r.filter(t=>t.status!=='完了');
+
   // filters (all AND)
   if(filters.status)   r = r.filter(t=>t.status===filters.status);
   if(filters.priority) r = r.filter(t=>t.priority===filters.priority);
@@ -491,50 +519,106 @@ function progBar(p) {
   return `<div class="prog-bg"><div class="prog-fill" style="width:${p}%;background:${col}"></div></div>`;
 }
 
+// ── ROW CLASS（期日urgency優先、完了は最優先）──
+function rowClass(t) {
+  if(t.status==='完了') return 'row-done';
+  if(t.dueDate) {
+    const d = diff(t.dueDate);
+    if(d < 0)  return 'row-overdue';
+    if(d === 0) return 'row-today';
+    if(d <= 3)  return 'row-soon';
+  }
+  if(t.status==='保留')   return 'row-hold';
+  if(t.status==='進行中') return 'row-wip';
+  return 'row-normal';
+}
+
+// ── DATE GROUPING ──
+function groupByDate(list) {
+  const map = new Map();
+  list.forEach(t => {
+    const k = t.dueDate || '___none';
+    if(!map.has(k)) map.set(k, []);
+    map.get(k).push(t);
+  });
+  const keys = [...map.keys()].sort((a,b)=>{
+    if(a==='___none') return 1;
+    if(b==='___none') return -1;
+    return a<b?-1:a>b?1:0;
+  });
+  return keys.map(k => {
+    const d = k!=='___none' ? diff(k) : null;
+    const dd = k!=='___none' ? fmtD(k) : '';
+    let label, cls='';
+    if(k==='___none') { label='📭 期日なし'; }
+    else if(d<0)      { label=`🔴 ${dd}（${Math.abs(d)}日超過）`; cls='grp-overdue'; }
+    else if(d===0)    { label=`🔴 今日 ${dd}`; cls='grp-today'; }
+    else if(d===1)    { label=`🟠 明日 ${dd}`; cls='grp-soon'; }
+    else if(d<=3)     { label=`🟡 ${dd}（あと${d}日）`; cls='grp-soon'; }
+    else              { label=`📅 ${dd}`; }
+    return { cls, label, tasks: map.get(k) };
+  });
+}
+
+function renderRow(t) {
+  const preview = (t.detail||'').slice(0,45)+((t.detail||'').length>45?'…':'');
+  return `
+  <tr class="${rowClass(t)}" data-id="${t.id}">
+    <td><input type="checkbox" ${t.status==='完了'?'checked':''} onchange="toggleDone('${t.id}',this.checked)" title="完了切替"></td>
+    <td class="ec" onclick="inlineDate(this,'${t.id}','createdAt')">${fmtD(t.createdAt)||'─'}</td>
+    <td>
+      <span class="ec" onclick="inlineDate(this,'${t.id}','startedAt')">${fmtD(t.startedAt)||'<span style="color:#CBD5E1">━</span>'}</span>
+      ${!t.startedAt?`<button class="today-btn" onclick="setField('${t.id}','startedAt',today())" title="今日をセット">今日</button>`:''}
+    </td>
+    <td class="ec" onclick="inlineDate(this,'${t.id}','dueDate')">${dueChip(t.dueDate,t.status)}</td>
+    <td class="ec tname" onclick="inlineText(this,'${t.id}','name')" style="font-weight:600;min-width:140px">${t.name||'<span style="color:#CBD5E1">（未入力）</span>'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#666" onclick="openModal('${t.id}')" title="${(t.detail||'').replace(/"/g,'&quot;')}">${preview||'<span style="color:#CBD5E1">━</span>'}</td>
+    <td>
+      <div class="prog-wrap">
+        ${progBar(t.progress)}
+        <select class="prog-sel" onchange="setField('${t.id}','progress',+this.value)">
+          ${[0,10,20,30,40,50,60,70,80,90,100].map(v=>`<option value="${v}" ${t.progress==v?'selected':''}>${v}%</option>`).join('')}
+        </select>
+      </div>
+    </td>
+    <td class="ec" onclick="inlineSelect(this,'${t.id}','priority',['高','中','低'])"><span class="pri pri-${t.priority}">${t.priority}</span></td>
+    <td>
+      <select onchange="setField('${t.id}','status',this.value)" style="font-size:12px;border:1px solid #DDD;padding:3px 6px;border-radius:4px;background:transparent;cursor:pointer">
+        ${STATUS_LIST.map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+    </td>
+    <td class="ec" onclick="openTagEditor(event,'${t.id}')">
+      <div style="display:flex;flex-wrap:wrap;gap:2px;min-width:60px">
+        ${(t.tags||[]).map(g=>`<span class="tag">${g}</span>`).join('')}
+        ${!(t.tags||[]).length?'<span style="color:#CBD5E1;font-size:11px">＋タグ</span>':''}
+      </div>
+    </td>
+    <td>
+      <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
+      <button class="act-btn act-del"  onclick="delTask('${t.id}')">🗑</button>
+    </td>
+  </tr>`;
+}
+
 function renderTable(list) {
   const tb = document.getElementById('tbody');
   document.getElementById('tbl-empty').classList.toggle('hidden', list.length>0);
   if(!list.length) { tb.innerHTML=''; return; }
 
-  tb.innerHTML = list.map(t => {
-    const preview = (t.detail||'').slice(0,45)+((t.detail||'').length>45?'…':'');
-    return `
-    <tr class="row-${t.status}" data-id="${t.id}">
-      <td><input type="checkbox" ${t.status==='完了'?'checked':''} onchange="toggleDone('${t.id}',this.checked)" title="完了切替"></td>
-      <td class="ec" onclick="inlineDate(this,'${t.id}','createdAt')">${fmtD(t.createdAt)||'─'}</td>
-      <td>
-        <span class="ec" onclick="inlineDate(this,'${t.id}','startedAt')">${fmtD(t.startedAt)||'<span style="color:#CBD5E1">━</span>'}</span>
-        ${!t.startedAt?`<button class="today-btn" onclick="setField('${t.id}','startedAt',today())" title="今日をセット">今日</button>`:''}
-      </td>
-      <td class="ec" onclick="inlineDate(this,'${t.id}','dueDate')">${dueChip(t.dueDate,t.status)}</td>
-      <td class="ec tname" onclick="inlineText(this,'${t.id}','name')" style="font-weight:600;min-width:140px">${t.name||'<span style="color:#CBD5E1">（未入力）</span>'}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#666" onclick="openModal('${t.id}')" title="${(t.detail||'').replace(/"/g,'&quot;')}">${preview||'<span style="color:#CBD5E1">━</span>'}</td>
-      <td>
-        <div class="prog-wrap">
-          ${progBar(t.progress)}
-          <select class="prog-sel" onchange="setField('${t.id}','progress',+this.value)">
-            ${[0,10,20,30,40,50,60,70,80,90,100].map(v=>`<option value="${v}" ${t.progress==v?'selected':''}>${v}%</option>`).join('')}
-          </select>
-        </div>
-      </td>
-      <td class="ec" onclick="inlineSelect(this,'${t.id}','priority',['高','中','低'])"><span class="pri pri-${t.priority}">${t.priority}</span></td>
-      <td>
-        <select onchange="setField('${t.id}','status',this.value)" style="font-size:12px;border:1px solid #DDD;padding:3px 6px;border-radius:4px;background:transparent;cursor:pointer">
-          ${STATUS_LIST.map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}
-        </select>
-      </td>
-      <td class="ec" onclick="openTagEditor(event,'${t.id}')">
-        <div style="display:flex;flex-wrap:wrap;gap:2px;min-width:60px">
-          ${(t.tags||[]).map(g=>`<span class="tag">${g}</span>`).join('')}
-          ${!(t.tags||[]).length?'<span style="color:#CBD5E1;font-size:11px">＋タグ</span>':''}
-        </div>
-      </td>
-      <td>
-        <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
-        <button class="act-btn act-del"  onclick="delTask('${t.id}')">🗑</button>
-      </td>
-    </tr>`;
-  }).join('');
+  const groups = groupByDate(list);
+  tb.innerHTML = groups.map(({label, cls, tasks:gt}) =>
+    `<tr class="grp-hdr ${cls}"><td colspan="11">${label}<span class="grp-count">${gt.length}件</span></td></tr>`
+    + gt.map(t => renderRow(t)).join('')
+  ).join('');
+}
+
+// ── TOGGLE HIDE DONE ──
+function toggleHideDone() {
+  hideDone = !hideDone;
+  const btn = document.getElementById('toggle-done');
+  btn.classList.toggle('active', hideDone);
+  btn.textContent = hideDone ? '👁 完了を表示' : '👁 完了を非表示';
+  render();
 }
 
 function renderKanban(list) {
