@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TODO Manager</title>
+<style>
+:root {
+  --primary: #4A90D9;
+  --primary-dark: #357ABD;
+  --bg: #F0F4F8;
+  --surface: #FFFFFF;
+  --border: #DEE2E6;
+  --text: #212529;
+  --muted: #6C757D;
+  --row-pending: #FFFFFF;
+  --row-hold: #FFFBEB;
+  --row-hold-accent: #F59E0B;
+  --row-wip: #EFF8FF;
+  --row-wip-accent: #3B82F6;
+  --row-done: #F8F9FA;
+  --row-done-text: #9CA3AF;
+  --pri-high: #EF4444;
+  --pri-mid: #F97316;
+  --pri-low: #22C55E;
+  --due-overdue-bg: #FEE2E2;
+  --due-overdue-text: #DC2626;
+  --due-today-bg: #FECACA;
+  --due-today-text: #991B1B;
+  --due-soon-bg: #FEF3C7;
+  --due-soon-text: #92400E;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* ── HEADER ── */
+.app-header { background: linear-gradient(135deg, #4A90D9, #357ABD); color: #fff; padding: 10px 18px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+.app-title { font-size: 18px; font-weight: 800; letter-spacing: .5px; flex: 1; }
+.view-toggle { display: flex; gap: 3px; background: rgba(255,255,255,.15); padding: 3px; border-radius: 6px; }
+.view-btn { padding: 5px 14px; border: none; background: transparent; color: rgba(255,255,255,.85); border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .2s; }
+.view-btn.active { background: #fff; color: var(--primary); }
+.hdr-btn { padding: 5px 11px; background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 4px; cursor: pointer; font-size: 12px; }
+.hdr-btn:hover { background: rgba(255,255,255,.28); }
+
+/* ── QUICK FILTERS ── */
+.quick-row { padding: 7px 18px; display: flex; gap: 7px; align-items: center; background: #fff; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.quick-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+.qf-btn { padding: 3px 11px; border: 1px solid var(--border); background: #fff; border-radius: 12px; cursor: pointer; font-size: 12px; transition: all .2s; white-space: nowrap; }
+.qf-btn:hover, .qf-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ── FILTER BAR ── */
+.filter-bar { padding: 8px 18px; display: flex; gap: 8px; align-items: flex-end; background: #F1F5F9; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.fg { display: flex; flex-direction: column; gap: 2px; }
+.fg label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.fg select, .fg input { padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; background: #fff; min-width: 100px; }
+.fg input[type="text"] { min-width: 150px; }
+.reset-btn { padding: 5px 14px; background: #EF4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 700; align-self: flex-end; }
+
+/* ── STATS ── */
+.stats-bar { padding: 6px 18px; display: flex; gap: 16px; background: #fff; border-bottom: 1px solid var(--border); font-size: 12px; flex-wrap: wrap; }
+.stat { color: var(--muted); }
+.stat strong { color: var(--text); font-weight: 700; }
+.stat.warn { color: #EF4444; }
+
+/* ── MAIN ── */
+.main { padding: 14px 18px; }
+.add-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+.add-input { flex: 1; padding: 8px 12px; border: 2px solid var(--border); border-radius: 6px; font-size: 13px; transition: border-color .2s; }
+.add-input:focus { outline: none; border-color: var(--primary); }
+.add-btn { padding: 8px 18px; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.add-btn:hover { background: var(--primary-dark); }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+thead th { background: #F1F5F9; padding: 9px 10px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; border-bottom: 2px solid var(--border); white-space: nowrap; }
+thead th.sort { cursor: pointer; user-select: none; }
+thead th.sort:hover { color: var(--primary); }
+tbody td { padding: 7px 10px; border-bottom: 1px solid #F0F4F8; vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* row status colors */
+tr.row-未着手 { background: var(--row-pending); }
+tr.row-保留 { background: var(--row-hold); }
+tr.row-保留 td:first-child { border-left: 3px solid var(--row-hold-accent); }
+tr.row-進行中 { background: var(--row-wip); }
+tr.row-進行中 td:first-child { border-left: 3px solid var(--row-wip-accent); }
+tr.row-完了 { background: var(--row-done); }
+tr.row-完了 td { color: var(--row-done-text) !important; }
+tr.row-完了 .tname { text-decoration: line-through; }
+
+/* ── INLINE EDIT ── */
+.ec { cursor: pointer; border-radius: 3px; }
+.ec:hover { background: rgba(74,144,217,.08); }
+.ec input, .ec select { padding: 3px 6px; border: 2px solid var(--primary); border-radius: 3px; font-size: 12px; font-family: inherit; outline: none; width: 100%; background: #fff; }
+
+/* ── PRIORITY BADGE ── */
+.pri { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; color: #fff; }
+.pri-高 { background: var(--pri-high); }
+.pri-中 { background: var(--pri-mid); }
+.pri-低 { background: var(--pri-low); }
+
+/* ── PROGRESS ── */
+.prog-wrap { display: flex; align-items: center; gap: 5px; }
+.prog-bg { background: #E5E7EB; border-radius: 4px; height: 6px; width: 70px; overflow: hidden; flex-shrink: 0; }
+.prog-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.prog-sel { font-size: 11px; border: none; background: transparent; color: var(--muted); cursor: pointer; max-width: 52px; }
+
+/* ── DUE DATE ── */
+.due-chip { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+.due-overdue { background: var(--due-overdue-bg); color: var(--due-overdue-text); font-weight: 700; }
+.due-today   { background: var(--due-today-bg);   color: var(--due-today-text);   font-weight: 700; }
+.due-soon    { background: var(--due-soon-bg);    color: var(--due-soon-text);    font-weight: 600; }
+
+/* ── TAG BADGE ── */
+.tag { display: inline-block; padding: 1px 6px; background: #E0E7FF; color: #3730A3; border-radius: 8px; font-size: 10px; font-weight: 600; margin: 1px; }
+
+/* ── ACTION BUTTONS ── */
+.act-btn { padding: 3px 7px; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; }
+.act-edit { background: #E0E7FF; color: #3730A3; }
+.act-del  { background: #FEE2E2; color: #DC2626; }
+.act-btn:hover { opacity: .8; }
+
+/* ── KANBAN ── */
+.kanban { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 14px; }
+.kb-col { flex: 0 0 270px; border-radius: 8px; padding: 10px; }
+.kb-col[data-s="未着手"] { background: #F8FAFC; border: 1px solid var(--border); }
+.kb-col[data-s="進行中"] { background: #EFF8FF; border: 1px solid #BFDBFE; }
+.kb-col[data-s="保留"]   { background: #FFFBEB; border: 1px solid #FDE68A; }
+.kb-col[data-s="完了"]   { background: #F8F9FA; border: 1px solid #E5E7EB; }
+.kb-hdr { font-weight: 800; font-size: 13px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.kb-count { font-size: 11px; background: rgba(0,0,0,.08); padding: 1px 7px; border-radius: 8px; font-weight: 600; }
+.kb-card { background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 7px; box-shadow: 0 1px 3px rgba(0,0,0,.08); cursor: pointer; transition: box-shadow .15s; border-left: 3px solid transparent; }
+.kb-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+.kb-card[data-p="高"] { border-left-color: var(--pri-high); }
+.kb-card[data-p="中"] { border-left-color: var(--pri-mid); }
+.kb-card[data-p="低"] { border-left-color: var(--pri-low); }
+.kb-title { font-weight: 600; font-size: 13px; margin-bottom: 5px; }
+.kb-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.kb-col[data-s="完了"] .kb-title { text-decoration: line-through; color: var(--muted); }
+
+/* ── MODAL ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal { background: #fff; border-radius: 10px; padding: 22px; width: 580px; max-width: 96vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+.modal-hdr { font-size: 17px; font-weight: 800; margin-bottom: 16px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.fg2 { display: flex; flex-direction: column; gap: 3px; }
+.fg2 label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.fg2 input, .fg2 select, .fg2 textarea { padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; font-family: inherit; transition: border-color .2s; }
+.fg2 input:focus, .fg2 select:focus, .fg2 textarea:focus { outline: none; border-color: var(--primary); }
+.fg2 textarea { min-height: 80px; resize: vertical; }
+.fg2.span2 { grid-column: 1 / -1; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.btn { padding: 7px 18px; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 700; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-sec { background: #F1F5F9; color: var(--text); }
+.btn-danger { background: #EF4444; color: #fff; }
+
+/* ── TAG CHECKBOXES ── */
+.tag-checks { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-check-item { display: flex; align-items: center; gap: 3px; font-size: 12px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: all .15s; }
+.tag-check-item:has(input:checked) { background: var(--primary); color: #fff; border-color: var(--primary); }
+.tag-check-item input { display: none; }
+
+/* ── EMPTY STATE ── */
+.empty { text-align: center; padding: 50px; color: var(--muted); }
+.hidden { display: none !important; }
+.today-btn { font-size: 10px; padding: 1px 5px; border: 1px solid #CCC; background: #F8F9FA; border-radius: 3px; cursor: pointer; margin-left: 4px; }
+.today-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <span class="app-title">📋 TODO Manager</span>
+  <div class="view-toggle">
+    <button class="view-btn active" id="btn-table"  onclick="switchView('table')">📄 リスト</button>
+    <button class="view-btn"        id="btn-kanban" onclick="switchView('kanban')">📌 カンバン</button>
+  </div>
+  <button class="hdr-btn" onclick="exportData()" title="JSONエクスポート">⬇ Export</button>
+  <button class="hdr-btn" onclick="document.getElementById('import-file').click()" title="JSONインポート">⬆ Import</button>
+</header>
+
+<!-- QUICK FILTERS -->
+<div class="quick-row">
+  <span class="quick-label">クイック:</span>
+  <button class="qf-btn" data-preset="wip"     onclick="applyPreset(this)">🔵 進行中</button>
+  <button class="qf-btn" data-preset="pending" onclick="applyPreset(this)">⬜ 未着手</button>
+  <button class="qf-btn" data-preset="hold"    onclick="applyPreset(this)">🟡 保留</button>
+  <button class="qf-btn" data-preset="due3"    onclick="applyPreset(this)">🔴 期日3日以内</button>
+  <button class="qf-btn" data-preset="high"    onclick="applyPreset(this)">❗ 優先度:高</button>
+  <button class="qf-btn" data-preset="main"    onclick="applyPreset(this)">📺 メインCH</button>
+  <button class="qf-btn" data-preset="spinoff" onclick="applyPreset(this)">🎬 スピンオフ</button>
+  <button class="qf-btn" data-preset="biz"     onclick="applyPreset(this)">📁 採用・事務</button>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <div class="fg"><label>ステータス</label>
+    <select id="f-status" onchange="applyFilters()">
+      <option value="">すべて</option>
+      <option>未着手</option><option>進行中</option><option>保留</option><option>完了</option>
+    </select>
+  </div>
+  <div class="fg"><label>優先度</label>
+    <select id="f-priority" onchange="applyFilters()">
+      <option value="">すべて</option>
+      <option>高</option><option>中</option><option>低</option>
+    </select>
+  </div>
+  <div class="fg"><label>タグ</label>
+    <select id="f-tag" onchange="applyFilters()">
+      <option value="">すべて</option>
+    </select>
+  </div>
+  <div class="fg"><label>キーワード</label>
+    <input type="text" id="f-kw" placeholder="タスク名・メモを検索" oninput="applyFilters()">
+  </div>
+  <div class="fg"><label>期日 From</label>
+    <input type="date" id="f-from" onchange="applyFilters()">
+  </div>
+  <div class="fg"><label>期日 To</label>
+    <input type="date" id="f-to" onchange="applyFilters()">
+  </div>
+  <button class="reset-btn" onclick="resetFilters()">✕ 全解除</button>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar" id="stats-bar"></div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- Quick add -->
+  <div class="add-bar">
+    <input type="text" class="add-input" id="quick-input"
+      placeholder="タスク名を入力して Enter でクイック追加…"
+      onkeydown="if(event.key==='Enter')quickAdd()">
+    <button class="add-btn" onclick="openModal(null)">＋ 詳細追加</button>
+  </div>
+
+  <!-- Table view -->
+  <div id="view-table">
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px"></th>
+            <th class="sort" onclick="sortBy('createdAt')">起票日<span id="si-createdAt"></span></th>
+            <th class="sort" onclick="sortBy('startedAt')">着手日<span id="si-startedAt"></span></th>
+            <th class="sort" onclick="sortBy('dueDate')">期日<span id="si-dueDate"></span></th>
+            <th class="sort" onclick="sortBy('name')" style="min-width:150px">タスク名<span id="si-name"></span></th>
+            <th style="min-width:140px">詳細/メモ</th>
+            <th style="min-width:130px">進捗</th>
+            <th class="sort" onclick="sortBy('priority')">優先度<span id="si-priority"></span></th>
+            <th class="sort" onclick="sortBy('status')">ステータス<span id="si-status"></span></th>
+            <th>タグ</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="tbl-empty" class="empty hidden">タスクがありません。上から追加してください。</div>
+  </div>
+
+  <!-- Kanban view -->
+  <div id="view-kanban" class="hidden">
+    <div class="kanban" id="kanban-board"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay hidden" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hdr" id="modal-hdr">タスク追加</div>
+    <div class="form-grid">
+      <div class="fg2 span2"><label>タスク名 *</label>
+        <input type="text" id="m-name" placeholder="タスク名">
+      </div>
+      <div class="fg2"><label>ステータス</label>
+        <select id="m-status" onchange="onStatusChange()">
+          <option>未着手</option><option>進行中</option><option>保留</option><option>完了</option>
+        </select>
+      </div>
+      <div class="fg2"><label>優先度</label>
+        <select id="m-priority">
+          <option>高</option><option selected>中</option><option>低</option>
+        </select>
+      </div>
+      <div class="fg2"><label>進捗率</label>
+        <select id="m-progress">
+          <option value="0">0%</option><option value="10">10%</option><option value="20">20%</option>
+          <option value="30">30%</option><option value="40">40%</option><option value="50">50%</option>
+          <option value="60">60%</option><option value="70">70%</option><option value="80">80%</option>
+          <option value="90">90%</option><option value="100">100%</option>
+        </select>
+      </div>
+      <div class="fg2"><label>期日</label>
+        <input type="date" id="m-due">
+      </div>
+      <div class="fg2"><label>着手日</label>
+        <input type="date" id="m-started">
+      </div>
+      <div class="fg2"><label>起票日</label>
+        <input type="date" id="m-created" readonly style="background:#F8F9FA">
+      </div>
+      <div class="fg2 span2"><label>タグ（複数選択可）</label>
+        <div class="tag-checks" id="m-tags"></div>
+      </div>
+      <div class="fg2 span2"><label>詳細/メモ（URLは自動リンク化）</label>
+        <textarea id="m-detail" placeholder="詳細・メモ・URL など…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger hidden" id="m-del" onclick="deleteFromModal()">削除</button>
+      <button class="btn btn-sec"     onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+
+<script>
+// ── CONSTANTS ──
+const DEFAULT_TAGS = ['メインチャンネル', 'スピンオフ', '採用・事務'];
+const STATUS_LIST  = ['未着手', '進行中', '保留', '完了'];
+const PRI_ORDER    = { 高: 0, 中: 1, 低: 2 };
+const ST_ORDER     = { 進行中: 0, 未着手: 1, 保留: 2, 完了: 3 };
+
+// ── STATE ──
+let tasks    = [];
+let allTags  = [...DEFAULT_TAGS];
+let editId   = null;
+let view     = 'table';
+let sortKey  = 'createdAt';
+let sortDir  = -1; // -1 = desc (newest first)
+let filters  = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'' };
+
+// ── UTILS ──
+const uid  = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+const today = () => new Date().toISOString().slice(0,10);
+const addD  = (s, n) => { const d=new Date(s); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const fmtD  = s => s ? s.slice(5).replace('-','/') : '';
+const diff  = s => { if(!s) return null; const t=new Date(); t.setHours(0,0,0,0); const d=new Date(s); d.setHours(0,0,0,0); return Math.round((d-t)/864e5); };
+
+function linkify(txt) {
+  if(!txt) return '';
+  return txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n/g,'<br>');
+}
+
+// ── STORAGE ──
+function save() {
+  localStorage.setItem('todo_v1', JSON.stringify({tasks, allTags}));
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('todo_v1')||'null');
+    if(d) { tasks = d.tasks||[]; allTags = d.allTags||[...DEFAULT_TAGS]; }
+    else   { tasks = demo(); }
+  } catch(e) { tasks = demo(); }
+}
+
+function demo() {
+  const td = today();
+  return [
+    { id:uid(), createdAt:td, startedAt:td, completedAt:null, dueDate:addD(td,2),
+      name:'動画編集：第5話', detail:'https://example.com/project5\n尺：15分予定、BGMはLoFi系で統一',
+      progress:40, priority:'高', status:'進行中', tags:['メインチャンネル'] },
+    { id:uid(), createdAt:td, startedAt:'', completedAt:null, dueDate:addD(td,7),
+      name:'サムネイル制作', detail:'Photoshopで作成',
+      progress:0, priority:'中', status:'未着手', tags:['メインチャンネル'] },
+    { id:uid(), createdAt:addD(td,-3), startedAt:'', completedAt:null, dueDate:addD(td,-1),
+      name:'台本チェック', detail:'',
+      progress:0, priority:'低', status:'保留', tags:['スピンオフ'] },
+    { id:uid(), createdAt:addD(td,-5), startedAt:addD(td,-4), completedAt:addD(td,-1), dueDate:addD(td,-1),
+      name:'採用面接準備', detail:'質問リストを作成する',
+      progress:100, priority:'高', status:'完了', tags:['採用・事務'] }
+  ];
+}
+
+// ── FILTER & SORT ──
+function filtered() {
+  let r = [...tasks];
+
+  // sort
+  r.sort((a,b) => {
+    let av = a[sortKey]??'', bv = b[sortKey]??'';
+    if(sortKey==='priority') { av=PRI_ORDER[av]??9; bv=PRI_ORDER[bv]??9; return (av-bv)*sortDir; }
+    if(sortKey==='status')   { av=ST_ORDER[av]??9; bv=ST_ORDER[bv]??9; return (av-bv)*sortDir; }
+    if(sortKey==='progress') return (Number(av)-Number(bv))*sortDir;
+    return av<bv ? sortDir : av>bv ? -sortDir : 0;
+  });
+
+  // filters (all AND)
+  if(filters.status)   r = r.filter(t=>t.status===filters.status);
+  if(filters.priority) r = r.filter(t=>t.priority===filters.priority);
+  if(filters.tag)      r = r.filter(t=>(t.tags||[]).includes(filters.tag));
+  if(filters.kw)       { const k=filters.kw.toLowerCase(); r = r.filter(t=>t.name.toLowerCase().includes(k)||(t.detail||'').toLowerCase().includes(k)); }
+  if(filters.from)     r = r.filter(t=>t.dueDate>=filters.from);
+  if(filters.to)       r = r.filter(t=>t.dueDate<=filters.to);
+  if(filters.preset==='due3') {
+    const lim = addD(today(),3);
+    r = r.filter(t=>t.dueDate && t.dueDate<=lim && t.status!=='完了');
+  }
+  return r;
+}
+
+// ── RENDER ──
+function render() {
+  const list = filtered();
+  renderStats(list);
+  rebuildTagSelect();
+  if(view==='table') renderTable(list);
+  else               renderKanban(list);
+}
+
+function renderStats(list) {
+  const all = tasks;
+  const over = all.filter(t=>t.dueDate&&diff(t.dueDate)<0&&t.status!=='完了').length;
+  document.getElementById('stats-bar').innerHTML = `
+    <span class="stat">表示 <strong>${list.length}</strong>/${all.length}</span>
+    <span class="stat">未着手 <strong>${all.filter(t=>t.status==='未着手').length}</strong></span>
+    <span class="stat">進行中 <strong>${all.filter(t=>t.status==='進行中').length}</strong></span>
+    <span class="stat">保留 <strong>${all.filter(t=>t.status==='保留').length}</strong></span>
+    <span class="stat">完了 <strong>${all.filter(t=>t.status==='完了').length}</strong></span>
+    ${over?`<span class="stat warn">⚠ 期日超過 <strong>${over}</strong></span>`:''}
+  `;
+}
+
+function dueChip(dueDate, status) {
+  if(!dueDate) return '<span style="color:#CBD5E1">━</span>';
+  const d = diff(dueDate);
+  let cls='', tip='';
+  if(status!=='完了') {
+    if(d<0)   { cls='due-overdue'; tip=`${Math.abs(d)}日超過`; }
+    else if(d===0) { cls='due-today'; tip='今日が期日！'; }
+    else if(d<=3)  { cls='due-soon';  tip=`あと${d}日`; }
+  }
+  return `<span class="due-chip ${cls}" title="${tip}">${fmtD(dueDate)}${tip?` (${tip})`:''}</span>`;
+}
+
+function progBar(p) {
+  const col = p>=100 ? '#22C55E' : p>=50 ? '#4A90D9' : '#F97316';
+  return `<div class="prog-bg"><div class="prog-fill" style="width:${p}%;background:${col}"></div></div>`;
+}
+
+function renderTable(list) {
+  const tb = document.getElementById('tbody');
+  document.getElementById('tbl-empty').classList.toggle('hidden', list.length>0);
+  if(!list.length) { tb.innerHTML=''; return; }
+
+  tb.innerHTML = list.map(t => {
+    const preview = (t.detail||'').slice(0,45)+((t.detail||'').length>45?'…':'');
+    return `
+    <tr class="row-${t.status}" data-id="${t.id}">
+      <td><input type="checkbox" ${t.status==='完了'?'checked':''} onchange="toggleDone('${t.id}',this.checked)" title="完了切替"></td>
+      <td class="ec" onclick="inlineDate(this,'${t.id}','createdAt')">${fmtD(t.createdAt)||'─'}</td>
+      <td>
+        <span class="ec" onclick="inlineDate(this,'${t.id}','startedAt')">${fmtD(t.startedAt)||'<span style="color:#CBD5E1">━</span>'}</span>
+        ${!t.startedAt?`<button class="today-btn" onclick="setField('${t.id}','startedAt',today())" title="今日をセット">今日</button>`:''}
+      </td>
+      <td class="ec" onclick="inlineDate(this,'${t.id}','dueDate')">${dueChip(t.dueDate,t.status)}</td>
+      <td class="ec tname" onclick="inlineText(this,'${t.id}','name')" style="font-weight:600;min-width:140px">${t.name||'<span style="color:#CBD5E1">（未入力）</span>'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:#666" onclick="openModal('${t.id}')" title="${(t.detail||'').replace(/"/g,'&quot;')}">${preview||'<span style="color:#CBD5E1">━</span>'}</td>
+      <td>
+        <div class="prog-wrap">
+          ${progBar(t.progress)}
+          <select class="prog-sel" onchange="setField('${t.id}','progress',+this.value)">
+            ${[0,10,20,30,40,50,60,70,80,90,100].map(v=>`<option value="${v}" ${t.progress==v?'selected':''}>${v}%</option>`).join('')}
+          </select>
+        </div>
+      </td>
+      <td><span class="pri pri-${t.priority}">${t.priority}</span></td>
+      <td>
+        <select onchange="setField('${t.id}','status',this.value)" style="font-size:12px;border:1px solid #DDD;padding:3px 6px;border-radius:4px;background:transparent;cursor:pointer">
+          ${STATUS_LIST.map(s=>`<option${t.status===s?' selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:2px">${(t.tags||[]).map(g=>`<span class="tag">${g}</span>`).join('')}</div></td>
+      <td>
+        <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
+        <button class="act-btn act-del"  onclick="delTask('${t.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderKanban(list) {
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = STATUS_LIST.map(s => {
+    const cards = list.filter(t=>t.status===s);
+    const emoji = {未着手:'⬜',進行中:'🔵',保留:'🟡',完了:'✅'}[s];
+    return `
+    <div class="kb-col" data-s="${s}">
+      <div class="kb-hdr"><span>${emoji} ${s}</span><span class="kb-count">${cards.length}</span></div>
+      ${cards.map(t=>`
+        <div class="kb-card" data-p="${t.priority}" onclick="openModal('${t.id}')">
+          <div class="kb-title">${t.name}</div>
+          <div class="kb-meta">
+            <span class="pri pri-${t.priority}">${t.priority}</span>
+            ${dueChip(t.dueDate,t.status)}
+          </div>
+          <div class="prog-wrap" style="margin-top:4px">${progBar(t.progress)}<span style="font-size:10px;color:#9CA3AF">${t.progress}%</span></div>
+          ${(t.tags||[]).length?`<div style="margin-top:4px">${t.tags.map(g=>`<span class="tag">${g}</span>`).join('')}</div>`:''}
+        </div>`).join('') || '<div style="color:#CBD5E1;font-size:12px;text-align:center;padding:10px">なし</div>'}
+    </div>`;
+  }).join('');
+}
+
+// ── INLINE EDIT ──
+function inlineText(cell, id, field) {
+  if(cell.querySelector('input')) return;
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  const orig = t[field]||'';
+  const inp = document.createElement('input');
+  inp.type='text'; inp.value=orig;
+  cell.innerHTML=''; cell.appendChild(inp); inp.focus(); inp.select();
+  const done = ()=>{ const v=inp.value; if(v!==orig) setField(id,field,v); else render(); };
+  inp.onblur=done;
+  inp.onkeydown=e=>{ if(e.key==='Enter')inp.blur(); if(e.key==='Escape'){cell.innerHTML=orig||''; } };
+}
+
+function inlineDate(cell, id, field) {
+  if(cell.querySelector('input')) return;
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  const orig = t[field]||'';
+  const inp = document.createElement('input');
+  inp.type='date'; inp.value=orig;
+  cell.innerHTML=''; cell.appendChild(inp); inp.focus();
+  const done = ()=>{ const v=inp.value; if(v!==orig) setField(id,field,v); else render(); };
+  inp.onblur=done;
+  inp.onkeydown=e=>{ if(e.key==='Enter')inp.blur(); if(e.key==='Escape'){render();} };
+}
+
+// ── FIELD UPDATE (with auto-sync) ──
+function setField(id, field, value) {
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  t[field] = value;
+
+  if(field==='status') {
+    if(value==='進行中') {
+      if(!t.startedAt) t.startedAt=today();
+      if(t.progress===0) t.progress=10;
+    }
+    if(value==='完了') {
+      t.progress=100;
+      if(!t.completedAt) t.completedAt=today();
+    } else {
+      t.completedAt=null;
+    }
+  }
+
+  if(field==='progress') {
+    const p=Number(value);
+    if(p===100 && t.status!=='完了') {
+      t.status='完了'; if(!t.completedAt) t.completedAt=today();
+    } else if(p>0 && p<100 && t.status==='完了') {
+      t.status='進行中'; t.completedAt=null;
+    } else if(p>0 && t.status==='未着手') {
+      t.status='進行中'; if(!t.startedAt) t.startedAt=today();
+    } else if(p===0 && t.status==='進行中') {
+      t.status='未着手';
+    }
+    if(p<100) t.completedAt=null;
+  }
+
+  save(); render();
+}
+
+function toggleDone(id, checked) { setField(id,'status',checked?'完了':'未着手'); }
+
+// ── SORT ──
+function sortBy(k) {
+  if(sortKey===k) sortDir*=-1; else { sortKey=k; sortDir=1; }
+  document.querySelectorAll('[id^="si-"]').forEach(el=>el.textContent='');
+  const el=document.getElementById('si-'+k);
+  if(el) el.textContent = sortDir===1?' ▲':' ▼';
+  render();
+}
+
+// ── FILTERS ──
+function applyFilters() {
+  filters.status   = document.getElementById('f-status').value;
+  filters.priority = document.getElementById('f-priority').value;
+  filters.tag      = document.getElementById('f-tag').value;
+  filters.kw       = document.getElementById('f-kw').value;
+  filters.from     = document.getElementById('f-from').value;
+  filters.to       = document.getElementById('f-to').value;
+  filters.preset   = '';
+  document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active'));
+  render();
+}
+
+function resetFilters() {
+  filters = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'' };
+  ['f-status','f-priority','f-tag'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-kw').value='';
+  document.getElementById('f-from').value='';
+  document.getElementById('f-to').value='';
+  document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active'));
+  render();
+}
+
+function applyPreset(btn) {
+  resetFilters();
+  const p = btn.dataset.preset;
+  filters.preset = p;
+  btn.classList.add('active');
+  if(p==='wip')     { filters.status='進行中';   document.getElementById('f-status').value='進行中'; }
+  if(p==='pending') { filters.status='未着手';   document.getElementById('f-status').value='未着手'; }
+  if(p==='hold')    { filters.status='保留';     document.getElementById('f-status').value='保留'; }
+  if(p==='high')    { filters.priority='高';     document.getElementById('f-priority').value='高'; }
+  if(p==='main')    { filters.tag='メインチャンネル'; document.getElementById('f-tag').value='メインチャンネル'; }
+  if(p==='spinoff') { filters.tag='スピンオフ';  document.getElementById('f-tag').value='スピンオフ'; }
+  if(p==='biz')     { filters.tag='採用・事務';  document.getElementById('f-tag').value='採用・事務'; }
+  // due3 handled in filtered()
+  render();
+}
+
+function rebuildTagSelect() {
+  const tagSet = new Set(DEFAULT_TAGS);
+  tasks.forEach(t=>(t.tags||[]).forEach(g=>tagSet.add(g)));
+  allTags = [...tagSet];
+  const sel = document.getElementById('f-tag');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">すべて</option>' + allTags.map(g=>`<option${g===cur?' selected':''}>${g}</option>`).join('');
+}
+
+// ── QUICK ADD ──
+function quickAdd() {
+  const inp = document.getElementById('quick-input');
+  const name = inp.value.trim(); if(!name) return;
+  tasks.unshift({ id:uid(), createdAt:today(), startedAt:'', completedAt:null,
+    dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[] });
+  inp.value=''; save(); render();
+}
+
+// ── DELETE ──
+function delTask(id) {
+  if(!confirm('このタスクを削除しますか？')) return;
+  tasks = tasks.filter(t=>t.id!==id); save(); render();
+}
+
+// ── MODAL ──
+function buildTagChecks(selected=[]) {
+  const tagSet = new Set(DEFAULT_TAGS);
+  tasks.forEach(t=>(t.tags||[]).forEach(g=>tagSet.add(g)));
+  const container = document.getElementById('m-tags');
+  container.innerHTML = [...tagSet].map(g=>`
+    <label class="tag-check-item">
+      <input type="checkbox" value="${g}" ${selected.includes(g)?'checked':''}>${g}
+    </label>`).join('')
+    + `<button type="button" onclick="addTag()" style="font-size:11px;padding:3px 10px;border:1px dashed #CBD5E1;background:none;border-radius:10px;cursor:pointer">＋ 新タグ</button>`;
+}
+
+function addTag() {
+  const name = prompt('新しいタグ名:'); if(!name?.trim()) return;
+  const g = name.trim();
+  if(!allTags.includes(g)) allTags.push(g);
+  const cur = getCheckedTags();
+  buildTagChecks([...cur, g]);
+}
+
+function getCheckedTags() {
+  return [...document.querySelectorAll('#m-tags input:checked')].map(cb=>cb.value);
+}
+
+function openModal(id) {
+  editId = id;
+  const isNew = !id;
+  document.getElementById('modal-hdr').textContent = isNew ? 'タスク追加' : 'タスク編集';
+  document.getElementById('m-del').classList.toggle('hidden', isNew);
+
+  if(isNew) {
+    document.getElementById('m-name').value='';
+    document.getElementById('m-status').value='未着手';
+    document.getElementById('m-priority').value='中';
+    document.getElementById('m-progress').value='0';
+    document.getElementById('m-due').value='';
+    document.getElementById('m-started').value='';
+    document.getElementById('m-created').value=today();
+    document.getElementById('m-detail').value='';
+    buildTagChecks([]);
+  } else {
+    const t = tasks.find(t=>t.id===id); if(!t) return;
+    document.getElementById('m-name').value=t.name;
+    document.getElementById('m-status').value=t.status;
+    document.getElementById('m-priority').value=t.priority;
+    document.getElementById('m-progress').value=String(t.progress);
+    document.getElementById('m-due').value=t.dueDate||'';
+    document.getElementById('m-started').value=t.startedAt||'';
+    document.getElementById('m-created').value=t.createdAt||'';
+    document.getElementById('m-detail').value=t.detail||'';
+    buildTagChecks(t.tags||[]);
+  }
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('m-name').focus();
+}
+
+function closeModal() { document.getElementById('modal').classList.add('hidden'); editId=null; }
+
+function onStatusChange() {
+  const s = document.getElementById('m-status').value;
+  if(s==='進行中') {
+    if(document.getElementById('m-progress').value==='0') document.getElementById('m-progress').value='10';
+    if(!document.getElementById('m-started').value) document.getElementById('m-started').value=today();
+  }
+  if(s==='完了') document.getElementById('m-progress').value='100';
+}
+
+function saveModal() {
+  const name = document.getElementById('m-name').value.trim();
+  if(!name) { alert('タスク名を入力してください'); return; }
+  const data = {
+    name,
+    status:   document.getElementById('m-status').value,
+    priority: document.getElementById('m-priority').value,
+    progress: +document.getElementById('m-progress').value,
+    dueDate:  document.getElementById('m-due').value,
+    startedAt:document.getElementById('m-started').value,
+    createdAt:document.getElementById('m-created').value||today(),
+    detail:   document.getElementById('m-detail').value,
+    tags:     getCheckedTags()
+  };
+  if(data.status==='完了') data.completedAt = today();
+  else data.completedAt = null;
+
+  if(editId) {
+    const idx = tasks.findIndex(t=>t.id===editId);
+    if(idx>=0) tasks[idx] = { ...tasks[idx], ...data };
+  } else {
+    tasks.unshift({ id:uid(), ...data });
+  }
+  save(); closeModal(); render();
+}
+
+function deleteFromModal() {
+  if(!editId||!confirm('このタスクを削除しますか？')) return;
+  tasks=tasks.filter(t=>t.id!==editId); save(); closeModal(); render();
+}
+
+// ── VIEW SWITCH ──
+function switchView(v) {
+  view=v;
+  document.getElementById('view-table').classList.toggle('hidden',v!=='table');
+  document.getElementById('view-kanban').classList.toggle('hidden',v!=='kanban');
+  document.getElementById('btn-table').classList.toggle('active',v==='table');
+  document.getElementById('btn-kanban').classList.toggle('active',v==='kanban');
+  render();
+}
+
+// ── EXPORT / IMPORT ──
+function exportData() {
+  const payload = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    tasks, allTags,
+    // Placeholders for future integrations
+    _discordConfig:  { webhookUrl:'', enabled:false, notifyDaysBefore:[0,1] },
+    _calendarConfig: { googleCalendarEnabled:false, iCalFeedEnabled:false }
+  };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+  a.download = `tasks_${today()}.json`;
+  a.click();
+}
+
+function handleImport(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try {
+      const d=JSON.parse(ev.target.result);
+      if(!Array.isArray(d.tasks)) { alert('不正なJSONです'); return; }
+      if(!confirm(`${d.tasks.length}件をインポートします（重複IDは上書き）。続行しますか？`)) return;
+      const map=Object.fromEntries(tasks.map(t=>[t.id,t]));
+      d.tasks.forEach(t=>map[t.id]=t);
+      tasks=Object.values(map);
+      if(d.allTags) allTags=[...new Set([...allTags,...d.allTags])];
+      save(); render(); alert('インポート完了');
+    } catch(err){ alert('JSONの解析エラー: '+err.message); }
+  };
+  r.readAsText(f); e.target.value='';
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeModal();
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter') saveModal();
+  if((e.ctrlKey||e.metaKey)&&e.key==='k') { e.preventDefault(); document.getElementById('quick-input').focus(); }
+});
+
+// ── INIT ──
+load();
+render();
+</script>
+</body>
+</html>
