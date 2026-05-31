@@ -928,6 +928,8 @@ function toggleHideDone() {
 }
 
 function renderKanban(list) {
+  // モバイルカードリストをクリア（カンバン表示時は不要）
+  document.getElementById('mobile-cards').innerHTML = '';
   const board = document.getElementById('kanban-board');
   board.innerHTML = STATUS_LIST.map(s => {
     const cards = list.filter(t=>t.status===s);
@@ -936,7 +938,7 @@ function renderKanban(list) {
     <div class="kb-col" data-s="${s}">
       <div class="kb-hdr"><span>${emoji} ${s}</span><span class="kb-count">${cards.length}</span></div>
       ${cards.map(t=>`
-        <div class="kb-card" data-p="${t.priority}" onclick="openModal('${t.id}')">
+        <div class="kb-card" data-p="${t.priority}" onclick="isMobile()?openDetail('${t.id}'):openModal('${t.id}')">
           <div class="kb-title">${t.name}</div>
           <div class="kb-meta">
             <span class="pri pri-${t.priority}">${t.priority}</span>
