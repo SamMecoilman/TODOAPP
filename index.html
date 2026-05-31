@@ -104,12 +104,16 @@ tr.row-hold    td:first-child { border-left: 3px solid var(--row-hold-accent); }
 tr.row-wip     td:first-child { border-left: 3px solid var(--row-wip-accent); }
 
 /* ── DATE GROUP HEADERS ── */
-tr.grp-hdr td { padding: 9px 14px 7px; font-size: 12px; font-weight: 800; letter-spacing: .3px; background: #F1F5F9; border-top: 2px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+tr.grp-hdr td { padding: 9px 14px 7px; font-size: 12px; font-weight: 800; letter-spacing: .3px; background: #F1F5F9; border-top: 2px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; cursor: pointer; user-select: none; }
 tr.grp-hdr:first-child td { border-top: none; }
 tr.grp-hdr.grp-overdue td { background: #FEE2E2; color: #DC2626; }
 tr.grp-hdr.grp-today   td { background: #FECACA; color: #991B1B; }
 tr.grp-hdr.grp-soon    td { background: #FEFCE8; color: #78350F; }
+tr.grp-hdr td:hover { filter: brightness(.96); }
 .grp-count { font-size: 11px; font-weight: 600; background: rgba(0,0,0,.07); padding: 1px 8px; border-radius: 8px; color: inherit; opacity:.8; margin-left: 8px; }
+.grp-arrow { margin-right: 6px; display: inline-block; transition: transform .2s; font-style: normal; }
+.grp-collapsed .grp-arrow { transform: rotate(-90deg); }
+tr.grp-row-hidden { display: none; }
 
 /* ── INLINE EDIT ── */
 .ec { cursor: pointer; border-radius: 3px; }
@@ -556,7 +560,7 @@ function groupByDate(list) {
     else if(d===1)    { label=`🟠 明日 ${dd}`; cls='grp-soon'; }
     else if(d<=3)     { label=`🟡 ${dd}（あと${d}日）`; cls='grp-soon'; }
     else              { label=`📅 ${dd}`; }
-    return { cls, label, tasks: map.get(k) };
+    return { key: k, cls, label, tasks: map.get(k) };
   });
 }
 
@@ -606,10 +610,40 @@ function renderTable(list) {
   if(!list.length) { tb.innerHTML=''; return; }
 
   const groups = groupByDate(list);
-  tb.innerHTML = groups.map(({label, cls, tasks:gt}) =>
-    `<tr class="grp-hdr ${cls}"><td colspan="11">${label}<span class="grp-count">${gt.length}件</span></td></tr>`
-    + gt.map(t => renderRow(t)).join('')
-  ).join('');
+  let html = '';
+  groups.forEach(({key, label, cls, tasks:gt}) => {
+    const collapsed = collapsedGroups.has(key);
+    html += `<tr class="grp-hdr ${cls}${collapsed?' grp-collapsed':''}" data-key="${key}" onclick="toggleGroup('${key}')"><td colspan="11"><i class="grp-arrow">▼</i>${label}<span class="grp-count">${gt.length}件</span></td></tr>`;
+    gt.forEach(t => { html += renderRow(t).replace('<tr ', `<tr data-grp="${key}" `); });
+  });
+  tb.innerHTML = html;
+
+  // 折りたたみ中のグループ行を非表示
+  collapsedGroups.forEach(key => {
+    tb.querySelectorAll('tr[data-grp]').forEach(r => {
+      if(r.dataset.grp === key) r.classList.add('grp-row-hidden');
+    });
+  });
+}
+
+// ── GROUP COLLAPSE ──
+const collapsedGroups = new Set();
+
+function toggleGroup(key) {
+  if(collapsedGroups.has(key)) collapsedGroups.delete(key);
+  else collapsedGroups.add(key);
+  const isCollapsed = collapsedGroups.has(key);
+
+  // ヘッダーの矢印回転
+  const tb = document.getElementById('tbody');
+  tb.querySelectorAll('tr.grp-hdr').forEach(hdr => {
+    if(hdr.dataset.key === key) hdr.classList.toggle('grp-collapsed', isCollapsed);
+  });
+
+  // 配下の行を表示/非表示
+  tb.querySelectorAll('tr[data-grp]').forEach(r => {
+    if(r.dataset.grp === key) r.classList.toggle('grp-row-hidden', isCollapsed);
+  });
 }
 
 // ── TOGGLE HIDE DONE ──
