@@ -807,7 +807,7 @@ function renderRow(t) {
       </div>
     </td>
     <td>
-      <button class="act-btn act-copy" onclick="copyTask('${t.id}')" title="タスク名・メモをコピー">📋</button>
+      <button class="act-btn act-copy" onclick="copyTask('${t.id}')" title="タスクを複製">⧉</button>
       <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
       <button class="act-btn act-del"  onclick="delTask('${t.id}')">🗑</button>
     </td>
@@ -1172,15 +1172,27 @@ function quickAdd() {
   inp.value=''; save(); render();
 }
 
-// ── COPY ──
+// ── DUPLICATE ──
 function copyTask(id) {
   const t = tasks.find(t=>t.id===id); if(!t) return;
-  const text = [t.name, t.detail].filter(Boolean).join('\n');
-  navigator.clipboard.writeText(text).then(() => {
-    // ボタンを一瞬「✓」に変えてフィードバック
-    const btn = document.querySelector(`tr[data-id="${id}"] .act-copy`);
-    if(btn) { const orig=btn.textContent; btn.textContent='✓'; setTimeout(()=>btn.textContent=orig, 1200); }
-  });
+  const dup = {
+    id: uid(),
+    name: t.name,
+    detail: t.detail,
+    createdAt: today(),
+    startedAt: '',
+    completedAt: null,
+    dueDate: '',
+    progress: 0,
+    priority: '中',
+    status: '未着手',
+    tags: []
+  };
+  tasks.unshift(dup);
+  save(); render();
+  // ボタンを一瞬「✓」に変えてフィードバック
+  const btn = document.querySelector(`tr[data-id="${id}"] .act-copy`);
+  if(btn) { const orig=btn.textContent; btn.textContent='✓'; setTimeout(()=>btn.textContent=orig, 1000); }
 }
 
 // ── DELETE ──
