@@ -145,6 +145,7 @@ tr.grp-row-hidden { display: none; }
 
 /* ── ACTION BUTTONS ── */
 .act-btn { padding: 3px 7px; border: none; border-radius: 3px; cursor: pointer; font-size: 11px; }
+.act-copy { background: #E0F2FE; color: #0369A1; }
 .act-edit { background: #E0E7FF; color: #3730A3; }
 .act-del  { background: #FEE2E2; color: #DC2626; }
 .act-btn:hover { opacity: .8; }
@@ -806,6 +807,7 @@ function renderRow(t) {
       </div>
     </td>
     <td>
+      <button class="act-btn act-copy" onclick="copyTask('${t.id}')" title="タスク名・メモをコピー">📋</button>
       <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
       <button class="act-btn act-del"  onclick="delTask('${t.id}')">🗑</button>
     </td>
@@ -1168,6 +1170,17 @@ function quickAdd() {
   tasks.unshift({ id:uid(), createdAt:today(), startedAt:'', completedAt:null,
     dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[] });
   inp.value=''; save(); render();
+}
+
+// ── COPY ──
+function copyTask(id) {
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  const text = [t.name, t.detail].filter(Boolean).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    // ボタンを一瞬「✓」に変えてフィードバック
+    const btn = document.querySelector(`tr[data-id="${id}"] .act-copy`);
+    if(btn) { const orig=btn.textContent; btn.textContent='✓'; setTimeout(()=>btn.textContent=orig, 1200); }
+  });
 }
 
 // ── DELETE ──
