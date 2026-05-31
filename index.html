@@ -183,7 +183,8 @@ tr.row-完了 .tname { text-decoration: line-through; }
     <button class="view-btn"        id="btn-kanban" onclick="switchView('kanban')">📌 カンバン</button>
   </div>
   <button class="hdr-btn" onclick="exportData()" title="JSONエクスポート">⬇ Export</button>
-  <button class="hdr-btn" onclick="document.getElementById('import-file').click()" title="JSONインポート">⬆ Import</button>
+  <button class="hdr-btn" onclick="document.getElementById('import-file').click()" title="JSONインポート">⬆ JSON</button>
+  <button class="hdr-btn" onclick="document.getElementById('csv-file').click()" title="スプレッドシートCSVインポート">📊 CSV</button>
 </header>
 
 <!-- QUICK FILTERS -->
@@ -325,6 +326,7 @@ tr.row-完了 .tname { text-decoration: line-through; }
 </div>
 
 <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+<input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleCSVImport(event)">
 
 <script>
 // ── CONSTANTS ──
@@ -358,31 +360,63 @@ function linkify(txt) {
 
 // ── STORAGE ──
 function save() {
-  localStorage.setItem('todo_v1', JSON.stringify({tasks, allTags}));
+  localStorage.setItem('todo_v2', JSON.stringify({tasks, allTags}));
 }
 function load() {
   try {
-    const d = JSON.parse(localStorage.getItem('todo_v1')||'null');
+    const d = JSON.parse(localStorage.getItem('todo_v2')||'null');
     if(d) { tasks = d.tasks||[]; allTags = d.allTags||[...DEFAULT_TAGS]; }
-    else   { tasks = demo(); }
-  } catch(e) { tasks = demo(); }
+    else   { tasks = demo(); save(); }
+  } catch(e) { tasks = demo(); save(); }
 }
 
 function demo() {
-  const td = today();
   return [
-    { id:uid(), createdAt:td, startedAt:td, completedAt:null, dueDate:addD(td,2),
-      name:'動画編集：第5話', detail:'https://example.com/project5\n尺：15分予定、BGMはLoFi系で統一',
-      progress:40, priority:'高', status:'進行中', tags:['メインチャンネル'] },
-    { id:uid(), createdAt:td, startedAt:'', completedAt:null, dueDate:addD(td,7),
-      name:'サムネイル制作', detail:'Photoshopで作成',
-      progress:0, priority:'中', status:'未着手', tags:['メインチャンネル'] },
-    { id:uid(), createdAt:addD(td,-3), startedAt:'', completedAt:null, dueDate:addD(td,-1),
-      name:'台本チェック', detail:'',
-      progress:0, priority:'低', status:'保留', tags:['スピンオフ'] },
-    { id:uid(), createdAt:addD(td,-5), startedAt:addD(td,-4), completedAt:addD(td,-1), dueDate:addD(td,-1),
-      name:'採用面接準備', detail:'質問リストを作成する',
-      progress:100, priority:'高', status:'完了', tags:['採用・事務'] }
+    { id:'t01', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'撮影',       detail:'https://store.steampowered.com/app/4624850/Super_Shout_Showdown_Demo/',
+      progress:0,   priority:'高', status:'未着手', tags:[] },
+    { id:'t02', createdAt:'2026-05-31', startedAt:'2026-05-31', completedAt:'2026-05-31', dueDate:'2026-05-31',
+      name:'声入れ',     detail:'ウニのところで使うその他キャラ',
+      progress:100, priority:'高', status:'完了',   tags:[] },
+    { id:'t03', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'声入れ',     detail:'スピンオフチャンネル',
+      progress:0,   priority:'高', status:'未着手', tags:['スピンオフ'] },
+    { id:'t04', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'素材の作成', detail:'ウニのところで使う主人公',
+      progress:0,   priority:'高', status:'未着手', tags:[] },
+    { id:'t05', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'素材の作成', detail:'ウニのところで使うヒロイン',
+      progress:0,   priority:'高', status:'未着手', tags:[] },
+    { id:'t06', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'動画編集',   detail:'スピンオフチャンネル',
+      progress:0,   priority:'高', status:'未着手', tags:['スピンオフ'] },
+    { id:'t07', createdAt:'2026-05-31', startedAt:'2026-04-01', completedAt:null,        dueDate:'2026-06-01',
+      name:'動画編集',   detail:'一揆団結',
+      progress:20,  priority:'高', status:'進行中', tags:['メインチャンネル'] },
+    { id:'t08', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-06-01',
+      name:'連絡',       detail:'税理士に連絡',
+      progress:0,   priority:'高', status:'未着手', tags:['採用・事務'] },
+    { id:'t09', createdAt:'2026-05-31', startedAt:'2026-05-31', completedAt:null,        dueDate:'2026-05-31',
+      name:'サムネの作成', detail:'https://store.steampowered.com/app/4624850/Super_Shout_Showdown_Demo/',
+      progress:80,  priority:'中', status:'進行中', tags:['メインチャンネル'] },
+    { id:'t10', createdAt:'2026-05-31', startedAt:'2026-05-31', completedAt:'2026-05-31', dueDate:'2026-05-31',
+      name:'レビュー',   detail:'猫丸の成果物',
+      progress:100, priority:'中', status:'完了',   tags:[] },
+    { id:'t11', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-05-31',
+      name:'台本',       detail:'メインチャンネルのアニメ',
+      progress:0,   priority:'中', status:'未着手', tags:['メインチャンネル'] },
+    { id:'t12', createdAt:'2026-05-31', startedAt:'2026-05-31', completedAt:null,        dueDate:'2026-06-01',
+      name:'面接準備',   detail:'Short編集者の　声かけ　/　日程決め\nhttps://docs.google.com/forms/d/1SX_U1LnP4WYuojFLLior7Rv_e80bCtWz3zP1mHX3NGI/edit?pli=1&pli=1',
+      progress:10,  priority:'中', status:'進行中', tags:['採用・事務'] },
+    { id:'t13', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-06-01',
+      name:'動画編集',   detail:'メインチャンネルのアニメ',
+      progress:0,   priority:'中', status:'未着手', tags:['メインチャンネル'] },
+    { id:'t14', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-06-01',
+      name:'動画編集',   detail:'windrose',
+      progress:0,   priority:'低', status:'未着手', tags:['スピンオフ'] },
+    { id:'t15', createdAt:'2026-05-31', startedAt:'',          completedAt:null,        dueDate:'2026-06-01',
+      name:'台本',       detail:'猫丸',
+      progress:0,   priority:'低', status:'未着手', tags:[] }
   ];
 }
 
@@ -789,6 +823,88 @@ function handleImport(e) {
     } catch(err){ alert('JSONの解析エラー: '+err.message); }
   };
   r.readAsText(f); e.target.value='';
+}
+
+// ── CSV IMPORT ──
+function handleCSVImport(e) {
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = parseSheetCSV(ev.target.result);
+      if(!imported.length) { alert('取り込めるタスクが見つかりませんでした。'); return; }
+      if(!confirm(`${imported.length}件のタスクをインポートします。既存データに追加されます。続行しますか？`)) return;
+      tasks = [...imported, ...tasks];
+      save(); render();
+      alert(`${imported.length}件をインポートしました！`);
+    } catch(err) { alert('CSVの解析エラー: ' + err.message); }
+  };
+  reader.readAsText(f, 'UTF-8');
+  e.target.value='';
+}
+
+function parseSheetCSV(text) {
+  const lines = text.replace(/\r/g,'').split('\n');
+  // ヘッダー行を探す（「起票」「タスク」が含まれる行）
+  let headerIdx = -1;
+  for(let i=0; i<lines.length; i++) {
+    if(lines[i].includes('起票') && lines[i].includes('タスク')) { headerIdx=i; break; }
+  }
+  if(headerIdx<0) { alert('ヘッダー行が見つかりません（「起票」「タスク」列が必要です）'); return []; }
+
+  const headers = splitCSV(lines[headerIdx]);
+  const ci = {
+    created:  headers.findIndex(h=>h.includes('起票')),
+    started:  headers.findIndex(h=>h.includes('着手')),
+    due:      headers.findIndex(h=>h.includes('期日')),
+    name:     headers.findIndex(h=>h.includes('タスク')),
+    detail:   headers.findIndex(h=>h.includes('詳細')),
+    progress: headers.findIndex(h=>h.includes('進捗')),
+    priority: headers.findIndex(h=>h.includes('優先')),
+    status:   headers.findIndex(h=>h.includes('ステータス'))
+  };
+
+  const yr = new Date().getFullYear();
+  const toDate = s => {
+    if(!s?.trim()) return '';
+    const m = s.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+    if(!m) return '';
+    return `${yr}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
+  };
+  const toProgress = s => { if(!s?.trim()) return 0; return Math.min(100,Math.max(0,parseInt(s.replace('%',''))||0)); };
+
+  const result = [];
+  for(let i=headerIdx+1; i<lines.length; i++) {
+    const cells = splitCSV(lines[i]);
+    const name = ci.name>=0 ? cells[ci.name]?.trim() : '';
+    if(!name) continue;
+    result.push({
+      id: uid(),
+      createdAt:  toDate(cells[ci.created]),
+      startedAt:  toDate(cells[ci.started]),
+      completedAt: null,
+      dueDate:    toDate(cells[ci.due]),
+      name,
+      detail:     ci.detail>=0  ? (cells[ci.detail]?.trim()||'')   : '',
+      progress:   ci.progress>=0 ? toProgress(cells[ci.progress])   : 0,
+      priority:   ci.priority>=0 ? (cells[ci.priority]?.trim()||'中') : '中',
+      status:     ci.status>=0   ? (cells[ci.status]?.trim()||'未着手') : '未着手',
+      tags: []
+    });
+  }
+  return result;
+}
+
+function splitCSV(line) {
+  const result=[]; let cur=''; let inQ=false;
+  for(let i=0; i<line.length; i++) {
+    const c=line[i];
+    if(c==='"'){ inQ=!inQ; }
+    else if(c===','&&!inQ){ result.push(cur.trim()); cur=''; }
+    else { cur+=c; }
+  }
+  result.push(cur.trim());
+  return result;
 }
 
 // ── KEYBOARD SHORTCUTS ──
