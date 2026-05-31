@@ -202,6 +202,94 @@ tr.grp-row-hidden { display: none; }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+/* ── GROUP PROGRESS ── */
+.grp-prog-wrap { flex:1; max-width:100px; background:rgba(0,0,0,.12); border-radius:4px; height:5px; overflow:hidden; margin-left:auto; }
+.grp-prog-fill { height:100%; background:currentColor; border-radius:4px; opacity:.6; }
+.grp-prog-txt  { font-size:10px; font-weight:700; opacity:.75; white-space:nowrap; }
+.grp-hdr td > div { display:flex; align-items:center; gap:8px; }
+
+/* ── MOBILE CARDS ── */
+#mobile-cards { display:none; }
+.mob-grp-hdr { display:flex; align-items:center; gap:7px; padding:9px 12px 8px; margin:10px 0 5px; font-size:12px; font-weight:800; background:#F1F5F9; border-radius:8px; cursor:pointer; user-select:none; }
+.mob-grp-hdr .grp-arrow { flex-shrink:0; display:inline-block; transition:transform .2s; }
+.mob-grp-hdr.grp-collapsed .grp-arrow { transform:rotate(-90deg); }
+.mob-grp-hdr.grp-overdue { background:#FEE2E2; color:#DC2626; }
+.mob-grp-hdr.grp-today   { background:#FECACA; color:#991B1B; }
+.mob-grp-hdr.grp-soon    { background:#FEFCE8; color:#78350F; }
+.mob-grp-body.hidden      { display:none; }
+.task-card { background:#fff; border-radius:10px; padding:13px 14px; margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); cursor:pointer; border-left:4px solid #E5E7EB; transition:transform .1s, box-shadow .15s; }
+.task-card:active { transform:scale(.98); }
+.task-card.row-done    { background:var(--row-done); border-left-color:#D1D5DB; }
+.task-card.row-overdue { background:#FEE2E2; border-left-color:#EF4444; }
+.task-card.row-today   { background:#FECACA; border-left-color:#DC2626; }
+.task-card.row-soon    { background:#FEFCE8; border-left-color:#F59E0B; }
+.task-card.row-hold    { background:var(--row-hold); border-left-color:var(--row-hold-accent); }
+.task-card.row-wip     { background:var(--row-wip); border-left-color:var(--row-wip-accent); }
+.card-top  { display:flex; align-items:flex-start; gap:10px; margin-bottom:8px; }
+.card-name { flex:1; font-weight:600; font-size:15px; line-height:1.35; }
+.card-name.done-text { color:var(--row-done-text); }
+.card-sub  { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+.card-foot { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+.sp { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+.sp-未着手 { background:#E5E7EB; color:#374151; }
+.sp-進行中 { background:#DBEAFE; color:#1E40AF; }
+.sp-保留   { background:#FEF3C7; color:#92400E; }
+.sp-完了   { background:#D1FAE5; color:#065F46; }
+
+/* ── FAB ── */
+.fab { display:none; position:fixed; bottom:22px; right:18px; width:54px; height:54px; border-radius:50%; background:var(--primary); color:#fff; border:none; font-size:26px; cursor:pointer; box-shadow:0 4px 14px rgba(74,144,217,.55); z-index:700; align-items:center; justify-content:center; transition:transform .15s; }
+.fab:active { transform:scale(.93); }
+
+/* ── MOBILE FILTER TOGGLE ── */
+.mob-filter-btn { display:none; padding:3px 11px; border:1px solid var(--border); background:#fff; border-radius:12px; cursor:pointer; font-size:12px; white-space:nowrap; }
+.mob-filter-btn.has-filter { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 767px) {
+  /* Header */
+  .app-header { padding:8px 12px; gap:8px; }
+  .app-title  { font-size:15px; }
+  .hdr-btn    { display:none; }
+  .view-btn   { padding:5px 10px; font-size:12px; }
+
+  /* Quick filters: horizontal scroll */
+  .quick-row { overflow-x:auto; flex-wrap:nowrap; padding:6px 12px; scrollbar-width:none; }
+  .quick-row::-webkit-scrollbar { display:none; }
+  .mob-filter-btn { display:inline-block; }
+
+  /* Filter bar: hidden by default, toggled */
+  .filter-bar { display:none; flex-direction:column; gap:8px; position:relative; }
+  .filter-bar.mob-open { display:flex; }
+  .fg select, .fg input { min-width:0; width:100%; }
+  .reset-btn { width:100%; }
+
+  /* Stats */
+  .stats-bar { overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; padding:5px 12px; }
+  .stats-bar::-webkit-scrollbar { display:none; }
+
+  /* Main */
+  .main { padding:10px 12px 80px; }
+  .add-bar { display:none; }  /* FABで代替 */
+
+  /* Table → Cards */
+  .tbl-wrap  { display:none; }
+  #tbl-empty { display:none; }
+  #mobile-cards { display:block; }
+
+  /* Kanban: touch-friendly */
+  .kb-col  { flex:0 0 260px; }
+  .kb-card { padding:13px; }
+
+  /* Modal: bottom sheet */
+  .overlay { align-items:flex-end; }
+  .modal   { border-radius:20px 20px 0 0; max-height:94vh; width:100%; padding:20px 16px 28px; }
+  .form-grid { grid-template-columns:1fr; }
+  .fg2.span2 { grid-column:1; }
+
+  /* FAB */
+  .fab { display:flex; }
+}
 </style>
 </head>
 <body>
@@ -231,10 +319,11 @@ tr.grp-row-hidden { display: none; }
   <button class="qf-btn" data-preset="biz"     onclick="applyPreset(this)">📁 採用・事務</button>
   <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></span>
   <button class="qf-btn" id="toggle-done" onclick="toggleHideDone()">👁 完了を非表示</button>
+  <button class="mob-filter-btn" id="mob-filter-btn" onclick="toggleMobFilter()">🔍 絞り込み</button>
 </div>
 
 <!-- FILTER BAR -->
-<div class="filter-bar">
+<div class="filter-bar" id="filter-bar">
   <div class="fg"><label>ステータス</label>
     <select id="f-status" onchange="applyFilters()">
       <option value="">すべて</option>
@@ -302,11 +391,17 @@ tr.grp-row-hidden { display: none; }
     <div id="tbl-empty" class="empty hidden">タスクがありません。上から追加してください。</div>
   </div>
 
+  <!-- Mobile card list -->
+  <div id="mobile-cards"></div>
+
   <!-- Kanban view -->
   <div id="view-kanban" class="hidden">
     <div class="kanban" id="kanban-board"></div>
   </div>
 </div>
+
+<!-- FAB -->
+<button class="fab" onclick="openModal(null)" title="タスクを追加">＋</button>
 
 <!-- MODAL -->
 <div class="overlay hidden" id="modal" onclick="if(event.target===this)closeModal()">
@@ -523,6 +618,28 @@ function progBar(p) {
   return `<div class="prog-bg"><div class="prog-fill" style="width:${p}%;background:${col}"></div></div>`;
 }
 
+// ── MOBILE DETECT ──
+const isMobile = () => window.innerWidth < 768;
+
+// ── MOBILE FILTER TOGGLE ──
+function toggleMobFilter() {
+  const bar = document.getElementById('filter-bar');
+  const btn = document.getElementById('mob-filter-btn');
+  bar.classList.toggle('mob-open');
+  const open = bar.classList.contains('mob-open');
+  btn.textContent = open ? '✕ 閉じる' : '🔍 絞り込み';
+  btn.classList.toggle('has-filter', open || hasActiveFilter());
+}
+function hasActiveFilter() {
+  return !!(filters.status||filters.priority||filters.tag||filters.kw||filters.from||filters.to||filters.preset);
+}
+
+// ── GROUP PROGRESS ──
+function grpProgress(tasks) {
+  if(!tasks.length) return 0;
+  return Math.round(tasks.reduce((s,t)=>s+t.progress,0)/tasks.length);
+}
+
 // ── ROW CLASS（期日urgency優先、完了は最優先）──
 function rowClass(t) {
   if(t.status==='完了') return 'row-done';
@@ -605,6 +722,8 @@ function renderRow(t) {
 }
 
 function renderTable(list) {
+  if(isMobile()) { renderCards(list); return; }
+  document.getElementById('mobile-cards').innerHTML = '';
   const tb = document.getElementById('tbody');
   document.getElementById('tbl-empty').classList.toggle('hidden', list.length>0);
   if(!list.length) { tb.innerHTML=''; return; }
@@ -613,7 +732,8 @@ function renderTable(list) {
   let html = '';
   groups.forEach(({key, label, cls, tasks:gt}) => {
     const collapsed = collapsedGroups.has(key);
-    html += `<tr class="grp-hdr ${cls}${collapsed?' grp-collapsed':''}" data-key="${key}" onclick="toggleGroup('${key}')"><td colspan="11"><i class="grp-arrow">▼</i>${label}<span class="grp-count">${gt.length}件</span></td></tr>`;
+    const pct = grpProgress(gt);
+    html += `<tr class="grp-hdr ${cls}${collapsed?' grp-collapsed':''}" data-key="${key}" onclick="toggleGroup('${key}')"><td colspan="11"><div><i class="grp-arrow">▼</i><span>${label}</span><span class="grp-count">${gt.length}件</span><div class="grp-prog-wrap"><div class="grp-prog-fill" style="width:${pct}%"></div></div><span class="grp-prog-txt">${pct}%</span></div></td></tr>`;
     gt.forEach(t => { html += renderRow(t).replace('<tr ', `<tr data-grp="${key}" `); });
   });
   tb.innerHTML = html;
@@ -643,6 +763,74 @@ function toggleGroup(key) {
   // 配下の行を表示/非表示
   tb.querySelectorAll('tr[data-grp]').forEach(r => {
     if(r.dataset.grp === key) r.classList.toggle('grp-row-hidden', isCollapsed);
+  });
+}
+
+// ── MOBILE CARD RENDERING ──
+function cardHTML(t) {
+  const d = t.dueDate ? diff(t.dueDate) : null;
+  let dueTxt='', dueStyle='color:var(--muted)';
+  if(d!==null) {
+    if(d<0)   { dueTxt=`${Math.abs(d)}日超過`; dueStyle='color:#DC2626;font-weight:700'; }
+    else if(d===0) { dueTxt='今日が期日';       dueStyle='color:#B91C1C;font-weight:700'; }
+    else if(d<=3)  { dueTxt=`あと${d}日`;       dueStyle='color:#92400E;font-weight:600'; }
+    else           { dueTxt=`あと${d}日`; }
+  }
+  const progCol = t.progress>=100?'#22C55E':t.progress>=50?'#4A90D9':'#F97316';
+  return `
+    <div class="card-top">
+      <input type="checkbox" ${t.status==='完了'?'checked':''} onclick="event.stopPropagation()"
+        onchange="toggleDone('${t.id}',this.checked)"
+        style="width:18px;height:18px;flex-shrink:0;accent-color:var(--primary);cursor:pointer;margin-top:2px">
+      <div class="card-name ${t.status==='完了'?'done-text':''}">${t.name}</div>
+      <span class="pri pri-${t.priority}">${t.priority}</span>
+    </div>
+    <div class="card-sub">
+      ${t.dueDate?`<span style="font-size:12px;${dueStyle}">📅 ${fmtD(t.dueDate)}${dueTxt?' · '+dueTxt:''}</span>`:''}
+      <div class="prog-bg" style="flex:1;margin:0 4px"><div class="prog-fill" style="width:${t.progress}%;background:${progCol}"></div></div>
+      <span style="font-size:11px;color:var(--muted);flex-shrink:0">${t.progress}%</span>
+    </div>
+    <div class="card-foot">
+      <span class="sp sp-${t.status}">${t.status}</span>
+      ${(t.tags||[]).map(g=>`<span class="tag">${g}</span>`).join('')}
+    </div>`;
+}
+
+function renderCards(list) {
+  const container = document.getElementById('mobile-cards');
+  if(!list.length) { container.innerHTML='<div class="empty">タスクがありません</div>'; return; }
+
+  const groups = groupByDate(list);
+  container.innerHTML = '';
+
+  groups.forEach(({key, label, cls, tasks:gt}) => {
+    const collapsed = collapsedGroups.has(key);
+    const pct = grpProgress(gt);
+
+    // グループヘッダー
+    const hdr = document.createElement('div');
+    hdr.className = `mob-grp-hdr ${cls}${collapsed?' grp-collapsed':''}`;
+    hdr.dataset.key = key;
+    hdr.innerHTML = `<i class="grp-arrow">▼</i><span style="flex:1">${label}</span><span class="grp-count">${gt.length}件</span><div class="grp-prog-wrap" style="max-width:60px"><div class="grp-prog-fill" style="width:${pct}%"></div></div><span class="grp-prog-txt">${pct}%</span>`;
+    hdr.onclick = () => {
+      if(collapsedGroups.has(key)) collapsedGroups.delete(key);
+      else collapsedGroups.add(key);
+      hdr.classList.toggle('grp-collapsed', collapsedGroups.has(key));
+      body.classList.toggle('hidden', collapsedGroups.has(key));
+    };
+    container.appendChild(hdr);
+
+    // カードグループ
+    const body = document.createElement('div');
+    body.className = 'mob-grp-body' + (collapsed?' hidden':'');
+    gt.forEach(t => {
+      const card = document.createElement('div');
+      card.className = `task-card ${rowClass(t)}`;
+      card.innerHTML = cardHTML(t);
+      card.onclick = () => openModal(t.id);
+      body.appendChild(card);
+    });
+    container.appendChild(body);
   });
 }
 
@@ -1118,6 +1306,13 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeModal();
   if((e.ctrlKey||e.metaKey)&&e.key==='Enter') saveModal();
   if((e.ctrlKey||e.metaKey)&&e.key==='k') { e.preventDefault(); document.getElementById('quick-input').focus(); }
+});
+
+// ── RESIZE ──
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(render, 150);
 });
 
 // ── INIT ──
