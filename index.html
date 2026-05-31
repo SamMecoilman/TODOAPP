@@ -220,6 +220,14 @@ tr.grp-row-hidden { display: none; }
 .mob-grp-body.hidden      { display:none; }
 .task-card { background:#fff; border-radius:10px; padding:13px 14px; margin-bottom:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); cursor:pointer; border-left:4px solid #E5E7EB; transition:transform .1s, box-shadow .15s; }
 .task-card:active { transform:scale(.98); }
+
+/* ── DETAIL SHEET ── */
+.detail-modal { border-radius:20px 20px 0 0; max-height:90vh; width:100%; padding:20px 16px 24px; overflow-y:auto; }
+.ds-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #F1F5F9; font-size:14px; }
+.ds-label { font-size:11px; font-weight:700; color:var(--muted); width:56px; flex-shrink:0; text-transform:uppercase; letter-spacing:.3px; padding-top:2px; }
+.ds-val { flex:1; line-height:1.5; }
+.ds-detail-box { background:#F8FAFC; border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.7; white-space:pre-wrap; word-break:break-all; margin-top:4px; max-height:130px; overflow-y:auto; }
+.ds-detail-box a { color:var(--primary); }
 .task-card.row-done    { background:var(--row-done); border-left-color:#D1D5DB; }
 .task-card.row-overdue { background:#FEE2E2; border-left-color:#EF4444; }
 .task-card.row-today   { background:#FECACA; border-left-color:#DC2626; }
@@ -402,6 +410,22 @@ tr.grp-row-hidden { display: none; }
 
 <!-- FAB -->
 <button class="fab" onclick="openModal(null)" title="タスクを追加">＋</button>
+
+<!-- Mobile Detail Sheet -->
+<div class="overlay hidden" id="detail-sheet" onclick="if(event.target===this)closeDetail()">
+  <div class="modal detail-modal">
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px">
+      <div id="ds-name" style="flex:1;font-size:18px;font-weight:800;line-height:1.3"></div>
+      <button onclick="closeDetail()" style="border:none;background:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="ds-body"></div>
+    <div class="modal-footer" style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px">
+      <button class="btn btn-danger" id="ds-del" onclick="deleteFromDetail()">削除</button>
+      <button class="btn btn-sec"    onclick="closeDetail()">閉じる</button>
+      <button class="btn btn-primary" onclick="editFromDetail()">✏ 編集</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL -->
 <div class="overlay hidden" id="modal" onclick="if(event.target===this)closeModal()">
@@ -621,6 +645,66 @@ function progBar(p) {
 // ── MOBILE DETECT ──
 const isMobile = () => window.innerWidth < 768;
 
+// ── MOBILE DETAIL SHEET ──
+let detailId = null;
+
+function openDetail(id) {
+  const t = tasks.find(t=>t.id===id); if(!t) return;
+  detailId = id;
+
+  document.getElementById('ds-name').textContent = t.name || '（タスク名なし）';
+
+  const d = t.dueDate ? diff(t.dueDate) : null;
+  let dueStyle='', dueSub='';
+  if(d!==null && t.status!=='完了') {
+    if(d<0)    { dueStyle='color:#DC2626;font-weight:700'; dueSub=` (${Math.abs(d)}日超過)`; }
+    else if(d===0) { dueStyle='color:#B91C1C;font-weight:700'; dueSub=' (今日)'; }
+    else if(d<=3)  { dueStyle='color:#92400E;font-weight:600'; dueSub=` (あと${d}日)`; }
+  }
+  const progCol = t.progress>=100?'#22C55E':t.progress>=50?'#4A90D9':'#F97316';
+
+  document.getElementById('ds-body').innerHTML = `
+    <div class="ds-row">
+      <span class="ds-label">状態</span>
+      <span class="ds-val" style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="sp sp-${t.status}">${t.status}</span>
+        <span class="pri pri-${t.priority}">${t.priority}</span>
+      </span>
+    </div>
+    <div class="ds-row">
+      <span class="ds-label">進捗</span>
+      <span class="ds-val" style="display:flex;align-items:center;gap:8px">
+        <div class="prog-bg" style="flex:1"><div class="prog-fill" style="width:${t.progress}%;background:${progCol}"></div></div>
+        <span style="font-size:13px;font-weight:700;color:${progCol}">${t.progress}%</span>
+      </span>
+    </div>
+    ${t.dueDate?`<div class="ds-row"><span class="ds-label">期日</span><span class="ds-val" style="${dueStyle}">${t.dueDate}${dueSub}</span></div>`:''}
+    ${t.startedAt?`<div class="ds-row"><span class="ds-label">着手日</span><span class="ds-val">${t.startedAt}</span></div>`:''}
+    ${t.createdAt?`<div class="ds-row"><span class="ds-label">起票日</span><span class="ds-val">${t.createdAt}</span></div>`:''}
+    ${(t.tags||[]).length?`<div class="ds-row"><span class="ds-label">タグ</span><span class="ds-val" style="display:flex;flex-wrap:wrap;gap:4px">${t.tags.map(g=>`<span class="tag">${g}</span>`).join('')}</span></div>`:''}
+    ${t.detail?`<div style="margin-top:8px"><div class="ds-label" style="margin-bottom:4px">メモ</div><div class="ds-detail-box">${linkify(t.detail)}</div></div>`:''}
+  `;
+
+  document.getElementById('detail-sheet').classList.remove('hidden');
+}
+
+function closeDetail() {
+  document.getElementById('detail-sheet').classList.add('hidden');
+  detailId = null;
+}
+
+function editFromDetail() {
+  const id = detailId;
+  closeDetail();
+  openModal(id);
+}
+
+function deleteFromDetail() {
+  if(!detailId || !confirm('このタスクを削除しますか？')) return;
+  tasks = tasks.filter(t=>t.id!==detailId);
+  save(); closeDetail(); render();
+}
+
 // ── MOBILE FILTER TOGGLE ──
 function toggleMobFilter() {
   const bar = document.getElementById('filter-bar');
@@ -827,7 +911,7 @@ function renderCards(list) {
       const card = document.createElement('div');
       card.className = `task-card ${rowClass(t)}`;
       card.innerHTML = cardHTML(t);
-      card.onclick = () => openModal(t.id);
+      card.onclick = () => openDetail(t.id);
       body.appendChild(card);
     });
     container.appendChild(body);
