@@ -634,6 +634,22 @@ function load() {
       if(Array.isArray(stored)) tasks.push(...stored.map(t=>({...t, owner:t.owner||name})));
     } catch(e) {}
   });
+  // 旧フォーマット(todo_v2)からの移行：IDが重複しないものをマージ
+  try {
+    const old = JSON.parse(localStorage.getItem('todo_v2')||'null');
+    if(old?.tasks?.length) {
+      const existingIds = new Set(tasks.map(t=>t.id));
+      const migrated = old.tasks
+        .filter(t=>t.name && !existingIds.has(t.id))
+        .map(t=>({...t, owner:t.owner||currentUser}));
+      if(migrated.length) {
+        tasks.push(...migrated);
+        save(); // 新フォーマットに保存
+      }
+      localStorage.removeItem('todo_v2'); // 旧キーを削除
+    }
+  } catch(e) {}
+
   if(!tasks.length && currentUser) {
     tasks = demo().map(t=>({...t, owner:currentUser}));
     save();
@@ -837,8 +853,8 @@ function filtered() {
   if(filters.priority) r = r.filter(t=>t.priority===filters.priority);
   if(filters.tag)      r = r.filter(t=>(t.tags||[]).includes(filters.tag));
   if(filters.kw)       { const k=filters.kw.toLowerCase(); r = r.filter(t=>t.name.toLowerCase().includes(k)||(t.detail||'').toLowerCase().includes(k)); }
-  if(filters.from)     r = r.filter(t=>t.dueDate>=filters.from);
-  if(filters.to)       r = r.filter(t=>t.dueDate<=filters.to);
+  if(filters.from)     r = r.filter(t=>!t.dueDate || t.dueDate>=filters.from);
+  if(filters.to)       r = r.filter(t=>!t.dueDate || t.dueDate<=filters.to);
   if(filters.preset==='due3') {
     const lim = addD(today(),3);
     r = r.filter(t=>t.dueDate && t.dueDate<=lim && t.status!=='完了');
