@@ -227,6 +227,27 @@ tr.grp-row-hidden { display: none; }
 /* ── DETAIL SHEET ── */
 .user-btn { font-weight:700; }
 .assignee-badge { font-size:11px; font-weight:700; padding:1px 6px; background:#E0E7FF; color:#3730A3; border-radius:8px; white-space:nowrap; }
+
+/* ── LOGIN SCREEN ── */
+.login-screen { position:fixed; inset:0; background:linear-gradient(135deg,#4A90D9,#2563EB); display:flex; align-items:center; justify-content:center; z-index:3000; padding:16px; }
+.login-screen.hidden { display:none; }
+.login-card { background:#fff; border-radius:20px; padding:36px 28px; width:440px; max-width:100%; box-shadow:0 24px 64px rgba(0,0,0,.3); }
+.login-logo { text-align:center; font-size:48px; margin-bottom:8px; }
+.login-title { text-align:center; font-size:22px; font-weight:900; margin-bottom:4px; }
+.login-sub { text-align:center; color:var(--muted); font-size:14px; margin-bottom:22px; }
+.user-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-bottom:18px; min-height:20px; }
+.user-card { padding:16px 10px; background:#F1F5F9; border:2px solid #E2E8F0; border-radius:12px; cursor:pointer; text-align:center; font-weight:700; font-size:15px; transition:all .15s; user-select:none; }
+.user-card:hover { background:var(--primary); color:#fff; border-color:var(--primary); transform:scale(1.04); }
+.user-card:active { transform:scale(.97); }
+.login-divider { text-align:center; position:relative; margin:16px 0; color:var(--muted); font-size:12px; }
+.login-divider::before, .login-divider::after { content:''; position:absolute; top:50%; width:30%; height:1px; background:var(--border); }
+.login-divider::before { left:0; } .login-divider::after { right:0; }
+.login-new-row { display:flex; gap:8px; }
+.login-new-row input { flex:1; }
+@media (max-width:767px) {
+  .login-card { padding:28px 20px; }
+  .login-logo { font-size:40px; }
+}
 .detail-modal { border-radius:20px 20px 0 0; max-height:90vh; width:100%; padding:20px 16px 24px; overflow-y:auto; }
 .ds-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #F1F5F9; font-size:14px; }
 .ds-label { font-size:11px; font-weight:700; color:var(--muted); width:56px; flex-shrink:0; text-transform:uppercase; letter-spacing:.3px; padding-top:2px; }
@@ -318,7 +339,7 @@ tr.grp-row-hidden { display: none; }
     <button class="view-btn active" id="btn-table"  onclick="switchView('table')">📄 リスト</button>
     <button class="view-btn"        id="btn-kanban" onclick="switchView('kanban')">📌 カンバン</button>
   </div>
-  <button class="hdr-btn user-btn" id="user-btn" onclick="openUserModal(true)" title="ユーザー切替">👤 <span id="user-display">──</span></button>
+  <button class="hdr-btn user-btn" id="user-btn" onclick="showLoginScreen()" title="ユーザー切替">👤 <span id="user-display">──</span></button>
   <span id="sync-status" title="同期状態" style="font-size:14px;cursor:default">💾</span>
   <button class="hdr-btn" onclick="exportData()" title="JSONエクスポート">⬇ Export</button>
   <button class="hdr-btn" onclick="document.getElementById('import-file').click()" title="JSONインポート">⬆ JSON</button>
@@ -339,6 +360,9 @@ tr.grp-row-hidden { display: none; }
   <span style="width:1px;background:var(--border);align-self:stretch;margin:0 4px"></span>
   <button class="qf-btn" id="toggle-done" onclick="toggleHideDone()">👁 完了を非表示</button>
   <button class="mob-filter-btn" id="mob-filter-btn" onclick="toggleMobFilter()">🔍 絞り込み</button>
+  <span style="width:1px;background:var(--border);align-self:stretch;margin:0 2px"></span>
+  <span class="quick-label">表示:</span>
+  <div id="user-tabs" style="display:flex;gap:5px;flex-shrink:0"></div>
 </div>
 
 <!-- FILTER BAR -->
@@ -504,17 +528,18 @@ tr.grp-row-hidden { display: none; }
 <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
 <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleCSVImport(event)">
 
-<!-- ユーザー名モーダル -->
-<div class="overlay" id="user-modal" style="z-index:1100">
-  <div class="modal" style="max-width:360px;border-radius:12px">
-    <div class="modal-hdr">👤 あなたの名前を入力</div>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">チームで共有するタスクに表示される名前です。<br>いつでも変更できます。</p>
-    <input type="text" id="user-name-input" class="add-input" placeholder="例: Sam、田中、猫丸"
-      style="width:100%;margin-bottom:16px" maxlength="20"
-      onkeydown="if(event.key==='Enter')saveUserName()">
-    <div style="display:flex;justify-content:flex-end;gap:8px">
-      <button class="btn btn-sec" id="user-cancel-btn" onclick="closeUserModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="saveUserName()">決定</button>
+<!-- ログイン画面 -->
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">📋</div>
+    <div class="login-title">TODO Manager</div>
+    <div class="login-sub">だれで入りますか？</div>
+    <div id="known-user-grid" class="user-grid"></div>
+    <div class="login-divider"><span>または新しい名前で入る</span></div>
+    <div class="login-new-row">
+      <input type="text" id="new-user-input" class="add-input" placeholder="名前を入力…"
+        maxlength="20" onkeydown="if(event.key==='Enter')loginWithNewName()">
+      <button class="add-btn" onclick="loginWithNewName()">→</button>
     </div>
   </div>
 </div>
@@ -548,7 +573,7 @@ const PRI_ORDER    = { 高: 0, 中: 1, 低: 2 };
 const ST_ORDER     = { 進行中: 0, 未着手: 1, 保留: 2, 完了: 3 };
 
 // ── STATE ──
-let tasks    = [];
+let tasks    = []; // 全ユーザーのタスクを統合したリスト（表示用）
 let allTags  = [...DEFAULT_TAGS];
 let editId   = null;
 let view     = 'table';
@@ -558,6 +583,7 @@ let filters  = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'
 
 // ── USER ──
 let currentUser = localStorage.getItem('todo_username') || '';
+let viewingUser = ''; // '' = 全員, or specific owner name
 
 // ── UTILS ──
 const uid  = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -573,30 +599,46 @@ function linkify(txt) {
     .replace(/\n/g,'<br>');
 }
 
-// ── STORAGE ──
-function saveLocal() {
-  localStorage.setItem('todo_v2', JSON.stringify({tasks, allTags}));
-}
-
-function save() {
-  saveLocal();
+// ── STORAGE (per-user) ──
+function saveUser(owner) {
+  const userTasks = tasks.filter(t=>(t.owner||currentUser)===owner);
+  localStorage.setItem(`todo_user_${owner}`, JSON.stringify(userTasks));
   if(db && FB_ENABLED) {
-    const obj = Object.fromEntries(tasks.map(t=>[t.id, t]));
-    _remoteHash = JSON.stringify(tasks); // echo防止
+    const obj = Object.fromEntries(userTasks.map(t=>[t.id,t]));
+    _remoteHash = JSON.stringify(tasks);
     setSyncStatus('⏳');
-    db.ref('todo/tasks').set(obj)
+    db.ref(`users/${owner}/tasks`).set(Object.keys(obj).length ? obj : null)
       .then(()=>setSyncStatus('🟢'))
       .catch(()=>setSyncStatus('🔴'));
-    db.ref('todo/tags').set(allTags).catch(()=>{});
   }
 }
 
+function save() {
+  // ownerごとにグループ化して保存
+  const owners = [...new Set(tasks.map(t=>t.owner||currentUser))];
+  owners.forEach(o=>saveUser(o));
+  // 既知ユーザーリストを更新
+  const known = JSON.parse(localStorage.getItem('todo_userlist')||'[]');
+  const merged = [...new Set([...known, ...owners])];
+  localStorage.setItem('todo_userlist', JSON.stringify(merged));
+}
+
 function load() {
-  try {
-    const d = JSON.parse(localStorage.getItem('todo_v2')||'null');
-    if(d) { tasks = d.tasks||[]; allTags = d.allTags||[...DEFAULT_TAGS]; }
-    else   { tasks = demo(); saveLocal(); }
-  } catch(e) { tasks = demo(); saveLocal(); }
+  // ローカルの全ユーザーデータを統合
+  const known = JSON.parse(localStorage.getItem('todo_userlist')||'[]');
+  const toLoad = known.includes(currentUser) ? known : [...known, currentUser];
+  tasks = [];
+  toLoad.forEach(name => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(`todo_user_${name}`)||'null');
+      if(Array.isArray(stored)) tasks.push(...stored.map(t=>({...t, owner:t.owner||name})));
+    } catch(e) {}
+  });
+  if(!tasks.length && currentUser) {
+    tasks = demo().map(t=>({...t, owner:currentUser}));
+    save();
+  }
+  allTags = [...new Set([...DEFAULT_TAGS, ...tasks.flatMap(t=>t.tags||[])])];
 }
 
 // ── FIREBASE ──
@@ -606,43 +648,29 @@ function initFirebase() {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
 
-    // 接続状態を監視
-    db.ref('.info/connected').on('value', snap => {
-      setSyncStatus(snap.val() ? '🟢' : '🔴');
-    });
+    db.ref('.info/connected').on('value', snap => setSyncStatus(snap.val()?'🟢':'🔴'));
 
-    // リアルタイム同期：他のユーザーの変更を受信
-    db.ref('todo/tasks').on('value', snap => {
+    // /users 以下の全ユーザーをリアルタイム監視
+    db.ref('users').on('value', snap => {
       const data = snap.val();
       if(!data) return;
-      const incoming = Object.values(data);
+      const incoming = [];
+      Object.entries(data).forEach(([name, ud]) => {
+        if(ud?.tasks) Object.values(ud.tasks).forEach(t=>incoming.push({...t,owner:t.owner||name}));
+      });
       const hash = JSON.stringify(incoming);
-      if(hash === _remoteHash) return; // 自分の書き込みのecho → スキップ
+      if(hash === _remoteHash) return;
       _remoteHash = hash;
       tasks = incoming;
       allTags = [...new Set([...DEFAULT_TAGS, ...tasks.flatMap(t=>t.tags||[])])];
-      saveLocal();
+      // ローカルに保存
+      const owners = [...new Set(tasks.map(t=>t.owner))];
+      owners.forEach(o => localStorage.setItem(`todo_user_${o}`, JSON.stringify(tasks.filter(t=>t.owner===o))));
+      localStorage.setItem('todo_userlist', JSON.stringify(owners));
       render();
       setSyncStatus('🟢');
     });
-
-    // ユーザー登録
-    if(currentUser) registerUser(currentUser);
-
-    // 初回はFirebaseからロード（localStorageより優先）
-    db.ref('todo/tasks').once('value', snap => {
-      const data = snap.val();
-      if(data) {
-        tasks = Object.values(data);
-        allTags = [...new Set([...DEFAULT_TAGS, ...tasks.flatMap(t=>t.tags||[])])];
-        saveLocal();
-        render();
-      }
-    });
-  } catch(e) {
-    console.error('Firebase初期化エラー:', e);
-    setSyncStatus('🔴');
-  }
+  } catch(e) { console.error('Firebase error:', e); setSyncStatus('🔴'); }
 }
 
 function setSyncStatus(icon) {
@@ -650,41 +678,88 @@ function setSyncStatus(icon) {
   if(el) el.textContent = icon;
 }
 
-// ── USER MANAGEMENT ──
-function openUserModal(allowCancel=false) {
-  document.getElementById('user-name-input').value = currentUser;
-  document.getElementById('user-cancel-btn').classList.toggle('hidden', !allowCancel);
-  document.getElementById('user-modal').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('user-name-input').focus(), 100);
+// ── LOGIN ──
+function showLoginScreen() {
+  document.getElementById('login-screen').classList.remove('hidden');
+  loadKnownUsers();
+  setTimeout(()=>document.getElementById('new-user-input').focus(), 300);
 }
 
-function closeUserModal() {
-  document.getElementById('user-modal').classList.add('hidden');
+function loadKnownUsers() {
+  const grid = document.getElementById('known-user-grid');
+  const known = JSON.parse(localStorage.getItem('todo_userlist')||'[]');
+
+  const renderGrid = (names) => {
+    if(!names.length) { grid.innerHTML='<div style="color:var(--muted);font-size:13px;grid-column:1/-1">まだ登録されていません</div>'; return; }
+    grid.innerHTML = names.map(n=>`
+      <div class="user-card" onclick="loginAs('${n}')">
+        <div style="font-size:24px;margin-bottom:4px">👤</div>${n}
+      </div>`).join('');
+  };
+
+  if(FB_ENABLED && db) {
+    db.ref('users').once('value', snap => {
+      const data = snap.val();
+      const fbUsers = data ? Object.keys(data) : [];
+      const merged = [...new Set([...known, ...fbUsers])];
+      localStorage.setItem('todo_userlist', JSON.stringify(merged));
+      renderGrid(merged);
+    });
+  } else {
+    renderGrid(known);
+  }
 }
 
-function saveUserName() {
-  const name = document.getElementById('user-name-input').value.trim();
-  if(!name) return;
+function loginAs(name) {
   currentUser = name;
   localStorage.setItem('todo_username', name);
   document.getElementById('user-display').textContent = name;
-  closeUserModal();
-  if(db) registerUser(name);
-  rebuildAssigneeFilter();
+  document.getElementById('login-screen').classList.add('hidden');
+
+  // 既知ユーザーに追加
+  const known = JSON.parse(localStorage.getItem('todo_userlist')||'[]');
+  if(!known.includes(name)) { known.push(name); localStorage.setItem('todo_userlist', JSON.stringify(known)); }
+
+  // Firebase登録
+  if(db && FB_ENABLED) db.ref(`users/${name}/info`).set({lastSeen: new Date().toISOString()});
+
+  load();
+  render();
 }
 
-function registerUser(name) {
-  if(!db || !name) return;
-  db.ref(`todo/users/${name}`).set({ lastSeen: new Date().toISOString() });
+function loginWithNewName() {
+  const name = document.getElementById('new-user-input').value.trim();
+  if(!name) return;
+  loginAs(name);
+}
+
+// ── USER TABS ──
+function renderUserTabs() {
+  const owners = [...new Set(tasks.map(t=>t.owner).filter(Boolean))].sort();
+  const tabs = document.getElementById('user-tabs');
+  if(!tabs) return;
+  tabs.innerHTML = `
+    <button class="qf-btn ${viewingUser===''?'active':''}" onclick="setViewUser('')">👥 全員</button>
+    ${currentUser?`<button class="qf-btn ${viewingUser===currentUser?'active':''}" onclick="setViewUser('${currentUser}')">👤 自分</button>`:''}
+    ${owners.filter(o=>o!==currentUser).map(o=>
+      `<button class="qf-btn ${viewingUser===o?'active':''}" onclick="setViewUser('${encodeURIComponent(o)}')">${o}</button>`
+    ).join('')}
+    <button class="qf-btn" onclick="showLoginScreen()" title="ユーザー切替" style="font-size:13px">🔄</button>
+  `;
+}
+
+function setViewUser(name) {
+  viewingUser = decodeURIComponent(name);
+  render();
 }
 
 function rebuildAssigneeFilter() {
   const sel = document.getElementById('f-assignee');
   if(!sel) return;
   const cur = sel.value;
-  const names = [...new Set(tasks.map(t=>t.assignee).filter(Boolean))];
+  const owners = [...new Set(tasks.map(t=>t.owner).filter(Boolean))];
   sel.innerHTML = '<option value="">すべて</option>' +
-    names.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
+    owners.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
 }
 
 function demo() {
@@ -750,6 +825,9 @@ function filtered() {
     return av<bv ? sortDir : av>bv ? -sortDir : 0;
   });
 
+  // ユーザービューフィルター
+  if(viewingUser) r = r.filter(t=>(t.owner||'')===viewingUser);
+
   // 完了非表示
   if(hideDone) r = r.filter(t=>t.status!=='完了');
 
@@ -774,6 +852,7 @@ function render() {
   renderStats(list);
   rebuildTagSelect();
   rebuildAssigneeFilter();
+  renderUserTabs();
   if(view==='table') renderTable(list);
   else               renderKanban(list);
 }
@@ -1329,7 +1408,7 @@ function quickAdd() {
   const inp = document.getElementById('quick-input');
   const name = inp.value.trim(); if(!name) return;
   tasks.unshift({ id:uid(), createdAt:today(), startedAt:'', completedAt:null,
-    dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[], assignee:currentUser });
+    dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[], assignee:currentUser, owner:currentUser });
   inp.value=''; save(); render();
 }
 
@@ -1444,7 +1523,8 @@ function saveModal() {
     createdAt:document.getElementById('m-created').value||today(),
     detail:   document.getElementById('m-detail').value,
     tags:     getCheckedTags(),
-    assignee: document.getElementById('m-assignee').value.trim()
+    assignee: document.getElementById('m-assignee').value.trim(),
+    owner:    currentUser
   };
   if(data.status==='完了') data.completedAt = today();
   else data.completedAt = null;
@@ -1604,11 +1684,14 @@ window.addEventListener('resize', () => {
 });
 
 // ── INIT ──
-load();
 initFirebase();
-document.getElementById('user-display').textContent = currentUser || '──';
-if(!currentUser) openUserModal(false); // 初回はキャンセル不可
-render();
+if(currentUser) {
+  document.getElementById('user-display').textContent = currentUser;
+  load();
+  render();
+} else {
+  showLoginScreen();
+}
 </script>
 </body>
 </html>
