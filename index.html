@@ -225,6 +225,8 @@ tr.grp-row-hidden { display: none; }
 .task-card:active { transform:scale(.98); }
 
 /* ── DETAIL SHEET ── */
+.user-btn { font-weight:700; }
+.assignee-badge { font-size:11px; font-weight:700; padding:1px 6px; background:#E0E7FF; color:#3730A3; border-radius:8px; white-space:nowrap; }
 .detail-modal { border-radius:20px 20px 0 0; max-height:90vh; width:100%; padding:20px 16px 24px; overflow-y:auto; }
 .ds-row { display:flex; align-items:flex-start; gap:8px; padding:9px 0; border-bottom:1px solid #F1F5F9; font-size:14px; }
 .ds-label { font-size:11px; font-weight:700; color:var(--muted); width:56px; flex-shrink:0; text-transform:uppercase; letter-spacing:.3px; padding-top:2px; }
@@ -302,6 +304,9 @@ tr.grp-row-hidden { display: none; }
   .fab { display:flex; }
 }
 </style>
+<!-- Firebase SDK (Compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -313,6 +318,8 @@ tr.grp-row-hidden { display: none; }
     <button class="view-btn active" id="btn-table"  onclick="switchView('table')">📄 リスト</button>
     <button class="view-btn"        id="btn-kanban" onclick="switchView('kanban')">📌 カンバン</button>
   </div>
+  <button class="hdr-btn user-btn" id="user-btn" onclick="openUserModal(true)" title="ユーザー切替">👤 <span id="user-display">──</span></button>
+  <span id="sync-status" title="同期状態" style="font-size:14px;cursor:default">💾</span>
   <button class="hdr-btn" onclick="exportData()" title="JSONエクスポート">⬇ Export</button>
   <button class="hdr-btn" onclick="document.getElementById('import-file').click()" title="JSONインポート">⬆ JSON</button>
   <button class="hdr-btn" onclick="document.getElementById('csv-file').click()" title="スプレッドシートCSVインポート">📊 CSV</button>
@@ -362,6 +369,11 @@ tr.grp-row-hidden { display: none; }
   <div class="fg"><label>期日 To</label>
     <input type="date" id="f-to" onchange="applyFilters()">
   </div>
+  <div class="fg"><label>担当者</label>
+    <select id="f-assignee" onchange="applyFilters()">
+      <option value="">すべて</option>
+    </select>
+  </div>
   <button class="reset-btn" onclick="resetFilters()">✕ 全解除</button>
 </div>
 
@@ -398,6 +410,7 @@ tr.grp-row-hidden { display: none; }
             <th class="sort" onclick="sortBy('priority')">優先度<span id="si-priority"></span></th>
             <th class="sort" onclick="sortBy('status')">ステータス<span id="si-status"></span></th>
             <th>タグ</th>
+            <th>担当者</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -470,6 +483,9 @@ tr.grp-row-hidden { display: none; }
       <div class="fg2"><label>起票日</label>
         <input type="date" id="m-created" readonly style="background:#F8F9FA">
       </div>
+      <div class="fg2"><label>担当者</label>
+        <input type="text" id="m-assignee" placeholder="担当者名">
+      </div>
       <div class="fg2 span2"><label>タグ（複数選択可）</label>
         <div class="tag-checks" id="m-tags"></div>
       </div>
@@ -488,7 +504,42 @@ tr.grp-row-hidden { display: none; }
 <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
 <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleCSVImport(event)">
 
+<!-- ユーザー名モーダル -->
+<div class="overlay" id="user-modal" style="z-index:1100">
+  <div class="modal" style="max-width:360px;border-radius:12px">
+    <div class="modal-hdr">👤 あなたの名前を入力</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">チームで共有するタスクに表示される名前です。<br>いつでも変更できます。</p>
+    <input type="text" id="user-name-input" class="add-input" placeholder="例: Sam、田中、猫丸"
+      style="width:100%;margin-bottom:16px" maxlength="20"
+      onkeydown="if(event.key==='Enter')saveUserName()">
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-sec" id="user-cancel-btn" onclick="closeUserModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveUserName()">決定</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ════════════════════════════════════════════════════════
+//  Firebase 設定
+//  Firebaseコンソール → プロジェクト設定 → アプリを追加 → Web
+//  から取得したconfigをここに貼り付けてください
+// ════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "",
+  authDomain:        "",
+  databaseURL:       "",   // ← 必須: Realtime Database URL
+  projectId:         "",
+  storageBucket:     "",
+  messagingSenderId: "",
+  appId:             ""
+};
+// ════════════════════════════════════════════════════════
+
+const FB_ENABLED = !!(FIREBASE_CONFIG.databaseURL);
+let db = null;
+let _remoteHash = '';
+
 // ── CONSTANTS ──
 let hideDone = false;
 const DEFAULT_TAGS = ['メインチャンネル', 'スピンオフ', '採用・事務'];
@@ -502,8 +553,11 @@ let allTags  = [...DEFAULT_TAGS];
 let editId   = null;
 let view     = 'table';
 let sortKey  = 'createdAt';
-let sortDir  = -1; // -1 = desc (newest first)
-let filters  = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'' };
+let sortDir  = -1;
+let filters  = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'', assignee:'' };
+
+// ── USER ──
+let currentUser = localStorage.getItem('todo_username') || '';
 
 // ── UTILS ──
 const uid  = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -520,15 +574,117 @@ function linkify(txt) {
 }
 
 // ── STORAGE ──
-function save() {
+function saveLocal() {
   localStorage.setItem('todo_v2', JSON.stringify({tasks, allTags}));
 }
+
+function save() {
+  saveLocal();
+  if(db && FB_ENABLED) {
+    const obj = Object.fromEntries(tasks.map(t=>[t.id, t]));
+    _remoteHash = JSON.stringify(tasks); // echo防止
+    setSyncStatus('⏳');
+    db.ref('todo/tasks').set(obj)
+      .then(()=>setSyncStatus('🟢'))
+      .catch(()=>setSyncStatus('🔴'));
+    db.ref('todo/tags').set(allTags).catch(()=>{});
+  }
+}
+
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem('todo_v2')||'null');
     if(d) { tasks = d.tasks||[]; allTags = d.allTags||[...DEFAULT_TAGS]; }
-    else   { tasks = demo(); save(); }
-  } catch(e) { tasks = demo(); save(); }
+    else   { tasks = demo(); saveLocal(); }
+  } catch(e) { tasks = demo(); saveLocal(); }
+}
+
+// ── FIREBASE ──
+function initFirebase() {
+  if(!FB_ENABLED) { setSyncStatus('💾'); return; }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+
+    // 接続状態を監視
+    db.ref('.info/connected').on('value', snap => {
+      setSyncStatus(snap.val() ? '🟢' : '🔴');
+    });
+
+    // リアルタイム同期：他のユーザーの変更を受信
+    db.ref('todo/tasks').on('value', snap => {
+      const data = snap.val();
+      if(!data) return;
+      const incoming = Object.values(data);
+      const hash = JSON.stringify(incoming);
+      if(hash === _remoteHash) return; // 自分の書き込みのecho → スキップ
+      _remoteHash = hash;
+      tasks = incoming;
+      allTags = [...new Set([...DEFAULT_TAGS, ...tasks.flatMap(t=>t.tags||[])])];
+      saveLocal();
+      render();
+      setSyncStatus('🟢');
+    });
+
+    // ユーザー登録
+    if(currentUser) registerUser(currentUser);
+
+    // 初回はFirebaseからロード（localStorageより優先）
+    db.ref('todo/tasks').once('value', snap => {
+      const data = snap.val();
+      if(data) {
+        tasks = Object.values(data);
+        allTags = [...new Set([...DEFAULT_TAGS, ...tasks.flatMap(t=>t.tags||[])])];
+        saveLocal();
+        render();
+      }
+    });
+  } catch(e) {
+    console.error('Firebase初期化エラー:', e);
+    setSyncStatus('🔴');
+  }
+}
+
+function setSyncStatus(icon) {
+  const el = document.getElementById('sync-status');
+  if(el) el.textContent = icon;
+}
+
+// ── USER MANAGEMENT ──
+function openUserModal(allowCancel=false) {
+  document.getElementById('user-name-input').value = currentUser;
+  document.getElementById('user-cancel-btn').classList.toggle('hidden', !allowCancel);
+  document.getElementById('user-modal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('user-name-input').focus(), 100);
+}
+
+function closeUserModal() {
+  document.getElementById('user-modal').classList.add('hidden');
+}
+
+function saveUserName() {
+  const name = document.getElementById('user-name-input').value.trim();
+  if(!name) return;
+  currentUser = name;
+  localStorage.setItem('todo_username', name);
+  document.getElementById('user-display').textContent = name;
+  closeUserModal();
+  if(db) registerUser(name);
+  rebuildAssigneeFilter();
+}
+
+function registerUser(name) {
+  if(!db || !name) return;
+  db.ref(`todo/users/${name}`).set({ lastSeen: new Date().toISOString() });
+}
+
+function rebuildAssigneeFilter() {
+  const sel = document.getElementById('f-assignee');
+  if(!sel) return;
+  const cur = sel.value;
+  const names = [...new Set(tasks.map(t=>t.assignee).filter(Boolean))];
+  sel.innerHTML = '<option value="">すべて</option>' +
+    names.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
 }
 
 function demo() {
@@ -598,6 +754,7 @@ function filtered() {
   if(hideDone) r = r.filter(t=>t.status!=='完了');
 
   // filters (all AND)
+  if(filters.assignee) r = r.filter(t=>t.assignee===filters.assignee);
   if(filters.status)   r = r.filter(t=>t.status===filters.status);
   if(filters.priority) r = r.filter(t=>t.priority===filters.priority);
   if(filters.tag)      r = r.filter(t=>(t.tags||[]).includes(filters.tag));
@@ -616,6 +773,7 @@ function render() {
   const list = filtered();
   renderStats(list);
   rebuildTagSelect();
+  rebuildAssigneeFilter();
   if(view==='table') renderTable(list);
   else               renderKanban(list);
 }
@@ -806,6 +964,7 @@ function renderRow(t) {
         ${!(t.tags||[]).length?'<span style="color:#CBD5E1;font-size:11px">＋タグ</span>':''}
       </div>
     </td>
+    <td>${t.assignee?`<span class="assignee-badge">👤 ${t.assignee}</span>`:''}</td>
     <td>
       <button class="act-btn act-copy" onclick="copyTask('${t.id}')" title="タスクを複製">⧉</button>
       <button class="act-btn act-edit" onclick="openModal('${t.id}')">✏</button>
@@ -826,7 +985,7 @@ function renderTable(list) {
   groups.forEach(({key, label, cls, tasks:gt}) => {
     const collapsed = collapsedGroups.has(key);
     const pct = grpProgress(gt);
-    html += `<tr class="grp-hdr ${cls}${collapsed?' grp-collapsed':''}" data-key="${key}" onclick="toggleGroup('${key}')"><td colspan="11"><div><i class="grp-arrow">▼</i><span>${label}</span><span class="grp-count">${gt.length}件</span><div class="grp-prog-wrap"><div class="grp-prog-fill" style="width:${pct}%"></div></div><span class="grp-prog-txt">${pct}%</span></div></td></tr>`;
+    html += `<tr class="grp-hdr ${cls}${collapsed?' grp-collapsed':''}" data-key="${key}" onclick="toggleGroup('${key}')"><td colspan="12"><div><i class="grp-arrow">▼</i><span>${label}</span><span class="grp-count">${gt.length}件</span><div class="grp-prog-wrap"><div class="grp-prog-fill" style="width:${pct}%"></div></div><span class="grp-prog-txt">${pct}%</span></div></td></tr>`;
     gt.forEach(t => { html += renderRow(t).replace('<tr ', `<tr data-grp="${key}" `); });
   });
   tb.innerHTML = html;
@@ -885,6 +1044,7 @@ function cardHTML(t) {
     </div>
     <div class="card-foot">
       <span class="sp sp-${t.status}">${t.status}</span>
+      ${t.assignee?`<span class="assignee-badge">👤 ${t.assignee}</span>`:''}
       ${(t.tags||[]).map(g=>`<span class="tag">${g}</span>`).join('')}
     </div>`;
 }
@@ -1121,14 +1281,15 @@ function applyFilters() {
   filters.kw       = document.getElementById('f-kw').value;
   filters.from     = document.getElementById('f-from').value;
   filters.to       = document.getElementById('f-to').value;
+  filters.assignee = document.getElementById('f-assignee').value;
   filters.preset   = '';
   document.querySelectorAll('.qf-btn').forEach(b=>b.classList.remove('active'));
   render();
 }
 
 function resetFilters() {
-  filters = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'' };
-  ['f-status','f-priority','f-tag'].forEach(id=>document.getElementById(id).value='');
+  filters = { status:'', priority:'', tag:'', kw:'', from:'', to:'', preset:'', assignee:'' };
+  ['f-status','f-priority','f-tag','f-assignee'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-kw').value='';
   document.getElementById('f-from').value='';
   document.getElementById('f-to').value='';
@@ -1168,7 +1329,7 @@ function quickAdd() {
   const inp = document.getElementById('quick-input');
   const name = inp.value.trim(); if(!name) return;
   tasks.unshift({ id:uid(), createdAt:today(), startedAt:'', completedAt:null,
-    dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[] });
+    dueDate:'', name, detail:'', progress:0, priority:'中', status:'未着手', tags:[], assignee:currentUser });
   inp.value=''; save(); render();
 }
 
@@ -1240,6 +1401,7 @@ function openModal(id) {
     document.getElementById('m-started').value='';
     document.getElementById('m-created').value=today();
     document.getElementById('m-detail').value='';
+    document.getElementById('m-assignee').value=currentUser;
     buildTagChecks([]);
   } else {
     const t = tasks.find(t=>t.id===id); if(!t) return;
@@ -1251,6 +1413,7 @@ function openModal(id) {
     document.getElementById('m-started').value=t.startedAt||'';
     document.getElementById('m-created').value=t.createdAt||'';
     document.getElementById('m-detail').value=t.detail||'';
+    document.getElementById('m-assignee').value=t.assignee||'';
     buildTagChecks(t.tags||[]);
   }
   document.getElementById('modal').classList.remove('hidden');
@@ -1280,7 +1443,8 @@ function saveModal() {
     startedAt:document.getElementById('m-started').value,
     createdAt:document.getElementById('m-created').value||today(),
     detail:   document.getElementById('m-detail').value,
-    tags:     getCheckedTags()
+    tags:     getCheckedTags(),
+    assignee: document.getElementById('m-assignee').value.trim()
   };
   if(data.status==='完了') data.completedAt = today();
   else data.completedAt = null;
@@ -1441,6 +1605,9 @@ window.addEventListener('resize', () => {
 
 // ── INIT ──
 load();
+initFirebase();
+document.getElementById('user-display').textContent = currentUser || '──';
+if(!currentUser) openUserModal(false); // 初回はキャンセル不可
 render();
 </script>
 </body>
