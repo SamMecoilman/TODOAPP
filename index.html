@@ -739,6 +739,7 @@ function loginAs(name) {
   // Firebase登録
   if(db && FB_ENABLED) db.ref(`users/${name}/info`).set({lastSeen: new Date().toISOString()});
 
+  restoreHideDone();
   load();
   render();
 }
@@ -1187,10 +1188,21 @@ function renderCards(list) {
 // ── TOGGLE HIDE DONE ──
 function toggleHideDone() {
   hideDone = !hideDone;
+  if(currentUser) localStorage.setItem(`todo_hideDone_${currentUser}`, hideDone);
+  syncHideDoneBtn();
+  render();
+}
+
+function syncHideDoneBtn() {
   const btn = document.getElementById('toggle-done');
+  if(!btn) return;
   btn.classList.toggle('active', hideDone);
   btn.textContent = hideDone ? '👁 完了を表示' : '👁 完了を非表示';
-  render();
+}
+
+function restoreHideDone() {
+  hideDone = currentUser ? localStorage.getItem(`todo_hideDone_${currentUser}`) === 'true' : false;
+  syncHideDoneBtn();
 }
 
 function renderKanban(list) {
@@ -1706,6 +1718,7 @@ initFirebase();
 if(currentUser) {
   document.getElementById('user-display').textContent = currentUser;
   document.getElementById('login-screen').classList.add('hidden');
+  restoreHideDone();
   load();
   render();
 } else {
